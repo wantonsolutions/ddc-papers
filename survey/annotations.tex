@@ -20,8 +20,8 @@
 }
 
 \newboolean{showcomments}
-%\setboolean{showcomments}{true}
-\setboolean{showcomments}{false}
+\setboolean{showcomments}{true}
+%\setboolean{showcomments}{false}
 \newcommand{\id}[1]{$-$Id: scgPaper.tex 32478 2010-04-29 09:11:32Z oscar $-$}
 \newcommand{\yellowbox}[1]{\fcolorbox{gray}{yellow}{\bfseries\sffamily\scriptsize#1}}
 \newcommand{\triangles}[1]{{\sf\small$\blacktriangleright$\textit{#1}$\blacktriangleleft$}}
@@ -52,6 +52,22 @@
 
 \definecolor{hccolor}{rgb}{0.21,0.54,0.84}
 \newcommand\hc[1]{\nbc{HC}{#1}{hccolor}}
+
+\definecolor{ideacolor}{rgb}{1.0,0,0.5}
+\newcommand\idea[1]{\nbc{IDEA}{#1}{ideacolor}}
+
+
+\definecolor{abstractcolor}{rgb}{0.0,0.5,1.0}
+\newcommand\rabstract[1]{\nbc{ABSTRACT}{#1}{abstractcolor}}
+
+\definecolor{introcolor}{rgb}{0.0,1.0,0.5}
+\newcommand\rintro[1]{\nbc{INTRO}{#1}{introcolor}}
+
+\definecolor{papercolor}{rgb}{1.0,1.0,0.0}
+\newcommand\rpaper[1]{\nbc{PAPER}{#1}{papercolor}}
+
+\definecolor{multicolor}{rgb}{1.0,0,0}
+\newcommand\rmulti[1]{\nbc{MULTI}{#1}{multicolor}}
 
 % Todo Command
 \definecolor{todocolor}{rgb}{0.9,0.1,0.1}

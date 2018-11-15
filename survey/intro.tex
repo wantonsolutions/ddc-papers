@@ -1,8 +1,90 @@
 \section{Introduction}
-\label{sec:intro}i
+\label{sec:intro}
 
 Here we detail some of major players in disaggregated computing, their contributions and limations.
 
-\subsection{Current Implementations}
+\section{Issues}
 
-Disaggregated computing has only manifest itself in a few concrete implmentations. HP's the machine (dissagregates memeory??)
+\subsection{Coherence}
+
+As CPU's grow to thousands, and potentially hundredes of thousands of cores coherencey becomes extremely expensive. A tired approach may be required where some memory is strongly coherent and other memory is managed by lightweight distributed protocols~\cite{189914}
+
+\subsection{Failure}
+
+Disks fail more often than expected~\cite{Schroeder:2007:DFR:1267903.1267904}.
+Perhaps the same could happen to main memory at scale? What would this look
+like for NVM? What techniques are nessisary to protect from failures of this
+particular frequency.
+
+\section{Related Work}
+Disaggregated computing has only manifest itself in a few concrete
+implmentations. HP's the machine. 
+
+\textbf{Beyond Processor Centric Archetecutres}~\cite{189914} \\
+%%
+This HP Machine position paper argues for a memory centric computing
+archetecture where NVMe sits at the middle of many cpu banks, and where each
+bank mannages a large amount of private by volitile main memory. It asserts
+that cache coherence is impossible at the scale of 100,000 cores and thus new
+memory models are required. Claims also include high radix optical switching
+will make NVM accessable at utra low latencies. Key to their archectecural
+proposal is that there will be a \textit{shared something} model where each cpu
+has it's own DRAm cache, and there is a large NVM shared resource behind all of
+it. Essentaily they are just replacing main memory with NVM and using DRAM as
+cache with the difference that main is also persistant.
+
+\idea{There is potentially an argument against this if the timings for NVMe are
+within a comprable time to DRAM. The argument is why page out to DRAM if it's
+not the point of consistancy anyways? Just use L3 or start calling DRAM L4 and
+NVM main.}
+
+\idea{Given that memory is so far apart in this archetecture special techniques
+    may be needed for IPC. It's a given that writing to shared memory will be
+    expensive and copies will be huge, perhaps IPC will all have to be
+    implemented using pointer passing techniques. Another thought is that there
+may be DRAM which is closer to CPUSfrom a coherance perspective. It may make
+more sense for CPUS which some sort of \textit{Coherence Index} to share with
+one another.}
+
+\idea{If memory failures must occur, why not treat all function calls as RPC.
+Any lost remote memory is then just an RPC failure, the semantics of which are
+dealt with by the calling applciation. Could existing applications be modified
+to these semantics automatically?}
+
+\textbf{Welcome to Zombieland}\cite{zombieland}
+This paper argues for a disagregated memory management scheme which decouples cpus's from memory via powersupply. The idea is thus, CPU's do not run all the time, and thereby use too much memory given that they have a static allocation of memory up front. The proposed design is to put the CPU into a zombie state when it is not being used and then poatch off of it using RDAM from other active CPU's
+
+\idea{While this idea is mainly about power consumption it may yeild an
+interesting result, mainily a zombie memory sharing system whereby busy cores
+can "eat" the memory of a zombie process. Perhaps when the busy cores require
+memory they can swap the zombie cores out to disk.}
+
+\textbf{Disk failure in the real
+world}~\cite{Schroeder:2007:DFR:1267903.1267904} Disk failures are often far
+higher than expected given data sheets. In some cases expected disk falure
+rates of 0.8\% can average as high as 3-5\% with some applications ranging upto
+13\%.
+
+\section{Experemential Questions}
+
+What is the mean time to failure for a byte on DRAM, FLASH, NVME? Perform a
+back of the envelope calculation as to the expected mean time to failure on a
+rack discriped at the beginning of section 2 of~\cite{189914}. How often do
+failures occur in a data center filled with such racks? How much redundancy is
+justified?
+
+
+\section{Reading}
+\begin{itemize}
+    \item{Beyond process-centric operating systems}~\cite{189914}\rpaper{}
+    \item{Dark Packets}\rabstract{}
+    \item{It's time for low latency (osterhouse)}
+    \item{LegoOS}\rintro{}
+    \item{fault isolation (Amandas work)}\rintro{}
+    \item{Decibel - Mihir}\rabstract{}
+    \item{Popcorn Linux}
+    \item{Helios - Heterogenious multiprocessing with satelite kernels}~\cite{helios}\rabstract{}
+    \item{Welcome to Zombieland}~\cite{zombieland}\rintro{}
+    \item{Disk failure in the real world}~\cite{Schroeder:2007:DFR:1267903.1267904}\rabstract{}
+
+\end{itemize}

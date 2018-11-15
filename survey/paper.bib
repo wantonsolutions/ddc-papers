@@ -5484,4 +5484,80 @@ isbn = {},
  numpages = {4},
  url = {http://dl.acm.org/citation.cfm?id=1792734.1792766},
  acmid = {1792766},
+}
+
+@inproceedings {189914,
+author = {Paolo Faraboschi and Kimberly Keeton and Tim Marsland and Dejan Milojicic},
+title = {Beyond Processor-centric Operating Systems},
+booktitle = {15th Workshop on Hot Topics in Operating Systems (HotOS {XV})},
+year = {2015},
+address = {Kartause Ittingen, Switzerland},
+url = {https://www.usenix.org/conference/hotos15/workshop-program/presentation/faraboschi},
+publisher = {{USENIX} Association},
+}
+
+
+@inproceedings{helios,
+author = {Nightingale, Edmund B and Hodson, Orion and McIlroy, Ross and Hawblitzel, Chris and Hunt, Galen},
+title = {Helios: Heterogeneous Multiprocessing with Satellite Kernels},
+booktitle = {Proceedings of the 22nd Symposium on Operating Systems Principles (SOSP '09)},
+year = {2009},
+month = {October},
+abstract = {
+Helios is an operating system designed to simplify the task of writing,
+deploying, and tuning applications for heterogeneous platforms. Helios
+    introduces satellite kernels, which export a single, uniform set of OS
+    abstractions across CPUs of disparate architectures and performance
+    characteristics. Access to I/O services such as ﬁle systems are made
+    transparent via remote message passing, which extends a standard
+    microkernel message-passing abstraction to a satellite kernel
+    infrastructure. Helios retargets applications to available ISAs by
+    compiling froman intermediate language. To simplify deploying and tuning
+    application performance, Helios exposes an afﬁnity metric to developers.
+    Afﬁnity provides a hint to the operating system about whether a process
+    would beneﬁt from executing on the same platform as a service it depends
+    upon.  We developed satellite kernels for an XScale programmable I/O card
+    and for cache-coherent NUMA architectures. We ofﬂoaded several applications
+    and operating system components, often by changing only a single line of
+    metadata. We show up to a 28% performance improvement by ofﬂoading tasks to
+    the XScale I/O card. On a mail-server benchmark, we show a 39% improvement
+    in performance by automatically splitting the application among multiple
+    NUMA domains.
+},
+publisher = {Association for Computing Machinery, Inc.},
+url = {https://www.microsoft.com/en-us/research/publication/helios-heterogeneous-multiprocessing-with-satellite-kernels/},
+edition = {Proceedings of the 22nd Symposium on Operating Systems Principles (SOSP '09)},
+}
+
+@inproceedings{zombieland,
+ author = {Nitu, Vlad and Teabe, Boris and Tchana, Alain and Isci, Canturk and Hagimont, Daniel},
+ title = {Welcome to Zombieland: Practical and Energy-efficient Memory Disaggregation in a Datacenter},
+ booktitle = {Proceedings of the Thirteenth EuroSys Conference},
+ series = {EuroSys '18},
+ year = {2018},
+ isbn = {978-1-4503-5584-1},
+ location = {Porto, Portugal},
+ pages = {16:1--16:12},
+ articleno = {16},
+ numpages = {12},
+ url = {http://doi.acm.org/10.1145/3190508.3190537},
+ doi = {10.1145/3190508.3190537},
+ acmid = {3190537},
+ publisher = {ACM},
+ address = {New York, NY, USA},
+ keywords = {energy efficiency, memory disaggregation, virtualization},
+} 
+
+@inproceedings{Schroeder:2007:DFR:1267903.1267904,
+ author = {Schroeder, Bianca and Gibson, Garth A.},
+ title = {Disk Failures in the Real World: What Does an MTTF of 1,000,000 Hours Mean to You?},
+ booktitle = {Proceedings of the 5th USENIX Conference on File and Storage Technologies},
+ series = {FAST '07},
+ year = {2007},
+ location = {San Jose, CA},
+ articleno = {1},
+ url = {http://dl.acm.org/citation.cfm?id=1267903.1267904},
+ acmid = {1267904},
+ publisher = {USENIX Association},
+ address = {Berkeley, CA, USA},
 } 
