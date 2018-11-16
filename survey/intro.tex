@@ -65,6 +65,15 @@ higher than expected given data sheets. In some cases expected disk falure
 rates of 0.8\% can average as high as 3-5\% with some applications ranging upto
 13\%.
 
+\textbf{CacheCloud}~\cite{cachecloud} The Network at 400GB is producing packets faster than DRAM can consume them, because of this L3 cache is proposed as an alternative, rather than go to DRAM just wire NIC's directly to L3. The argument is esentally that getting the packets closer to the compute faster will get them processed faster (intuitive, but it assumes no resource really need to be used).
+
+What should the memory heiarchy in a DDC look like. Once could imagine that if some CPU's can send messages to their L3 caches directly then they really are just sharing caches. This is identical to a NUMA system.
+
+\idea{Design an allocation strategy which dynamically builds NUMA systems. I.E
+CPU caches directly message one another, and then use backing DRAM as a
+consistancy mechanism. If the DRAM is really the lateny hog and not the network
+then partitioning a system by these parameters may be benficial.}
+
 \section{Experemential Questions}
 
 What is the mean time to failure for a byte on DRAM, FLASH, NVME? Perform a
@@ -73,11 +82,14 @@ rack discriped at the beginning of section 2 of~\cite{189914}. How often do
 failures occur in a data center filled with such racks? How much redundancy is
 justified?
 
+DDC represents a distributed OS that is far tightly coupled than prior WAN and LAN approaches.
+
 
 \section{Reading}
 \begin{itemize}
     \item{Beyond process-centric operating systems}~\cite{189914}\rpaper{}
     \item{Dark Packets}\rabstract{}
+    \item{CacheCloud}~\cite{cachecloud}\rintro{+}
     \item{It's time for low latency (osterhouse)}
     \item{LegoOS}\rintro{}
     \item{fault isolation (Amandas work)}\rintro{}
