@@ -5571,3 +5571,30 @@ address = {Boston, MA},
 url = {https://www.usenix.org/conference/hotcloud18/presentation/thomas},
 publisher = {{USENIX} Association},
 }
+
+@inproceedings {legoos,
+author = {Yizhou Shan and Yutong Huang and Yilun Chen and Yiying Zhang},
+title = {LegoOS: A Disseminated, Distributed {OS} for Hardware Resource Disaggregation},
+booktitle = {13th {USENIX} Symposium on Operating Systems Design and Implementation ({OSDI} 18)},
+year = {2018},
+isbn = {978-1-931971-47-8},
+address = {Carlsbad, CA},
+pages = {69--87},
+url = {https://www.usenix.org/conference/osdi18/presentation/shan},
+publisher = {{USENIX} Association},
+}
+
+@inproceedings{the-multikernel,
+author = {Baumann, Andrew and Barham, Paul and Isaacs, Rebecca and Harris, Tim},
+title = {The Multikernel: A new OS architecture for scalable multicore systems},
+booktitle = {22nd Symposium on Operating Systems Principles},
+year = {2009},
+month = {October},
+abstract = {Commodity computer systems contain more and more processor cores and exhibit increasingly diverse architectural tradeoffs, including memory hierarchies, interconnects, instruction sets and variants, and IO configurations. Previous high-performance computing systems have scaled in specific cases, but the dynamic nature of modern client and server workloads, coupled with the impossibility of statically optimizing an OS for all workloads and hardware variants pose serious challenges for operating system structures.
+We argue that the challenge of future multicore hardware is best met by embracing the networked nature of the machine, rethinking OS architecture using ideas from distributed systems. We investigate a new OS structure, the multikernel, that treats the machine as a network of independent cores, assumes no inter-core sharing at the lowest level, and moves traditional OS functionality to a distributed system of processes that communicate via message-passing.
+We have implemented a multikernel OS to show that the approach is promising, and we describe how traditional scalability problems for operating systems (such as memory management) can be effectively recast using messages and can exploit insights from distributed systems and networking.  An evaluation of our prototype on multicore systems shows that, even on present-day machines, the performance of a multikernel is comparable with a conventional OS, and can scale better to support future hardware.
+},
+publisher = {Association for Computing Machinery, Inc.},
+url = {https://www.microsoft.com/en-us/research/publication/the-multikernel-a-new-os-architecture-for-scalable-multicore-systems/},
+edition = {22nd Symposium on Operating Systems Principles},
+}

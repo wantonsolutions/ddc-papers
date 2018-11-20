@@ -1,102 +1,201 @@
 \section{Introduction}
 \label{sec:intro}
 
-Here we detail some of major players in disaggregated computing, their contributions and limations.
+This document is broken into sections for the purpose of partioning research
+concerns. Section~\ref{sec:issues} is a laundry list of design points in the
+DDC space. The intent is to build a cross paper set of arguments and references
+for each design point. Section~\ref{sec:related} summerizes papers at a high
+level, and contains ideas relevent to those papers.
+Section~\ref{sec:experiment} contains potential back of the envelope and large
+scale experiments which could be run to either validate or promote further
+research into an idea. Section~\ref{sec:arguments} is scratch space for
+rehetorical arguments. finally Section~\ref{sec:reading} contains citations to
+related work and tags for the level of detail at which they have been read.
 
-\section{Issues}
+\section{DDC design issues}
+\label{sec:issues}
 
 \subsection{Coherence}
 
-As CPU's grow to thousands, and potentially hundredes of thousands of cores coherencey becomes extremely expensive. A tired approach may be required where some memory is strongly coherent and other memory is managed by lightweight distributed protocols~\cite{189914}
+As CPU's grow to thousands, and potentially hundreds of thousands of cores coherency becomes extremely expensive. A tiered approach may be required where some memory is strongly coherent and other memory is managed by lightweight distributed protocols~\cite{189914}
 
 \subsection{Failure}
 
 Disks fail more often than expected~\cite{Schroeder:2007:DFR:1267903.1267904}.
 Perhaps the same could happen to main memory at scale? What would this look
-like for NVM? What techniques are nessisary to protect from failures of this
+like for NVM? What techniques are necessary to protect from failures of this
 particular frequency.
 
 \section{Related Work}
-Disaggregated computing has only manifest itself in a few concrete
-implmentations. HP's the machine. 
+\label{sec:related}
 
-\textbf{Beyond Processor Centric Archetecutres}~\cite{189914} \\
+\textbf{Beyond Processor Centric Architectures}~\cite{189914} \\
 %%
 This HP Machine position paper argues for a memory centric computing
-archetecture where NVMe sits at the middle of many cpu banks, and where each
-bank mannages a large amount of private by volitile main memory. It asserts
+architecture where NVMe sits at the middle of many CPU banks, and where each
+bank manages a large amount of private by volatile main memory. It asserts
 that cache coherence is impossible at the scale of 100,000 cores and thus new
 memory models are required. Claims also include high radix optical switching
-will make NVM accessable at utra low latencies. Key to their archectecural
-proposal is that there will be a \textit{shared something} model where each cpu
+will make NVM accessible at ultra low latencies. Key to their architectural
+proposal is that there will be a \textit{shared something} model where each CPU
 has it's own DRAm cache, and there is a large NVM shared resource behind all of
-it. Essentaily they are just replacing main memory with NVM and using DRAM as
-cache with the difference that main is also persistant.
+it. Essentially they are just replacing main memory with NVM and using DRAM as
+cache with the difference that main is also persistent.
 
 \idea{There is potentially an argument against this if the timings for NVMe are
-within a comprable time to DRAM. The argument is why page out to DRAM if it's
-not the point of consistancy anyways? Just use L3 or start calling DRAM L4 and
+within a comparable time to DRAM. The argument is why page out to DRAM if it's
+not the point of consistency anyways? Just use L3 or start calling DRAM L4 and
 NVM main.}
 
-\idea{Given that memory is so far apart in this archetecture special techniques
+\idea{Given that memory is so far apart in this architecture special techniques
     may be needed for IPC. It's a given that writing to shared memory will be
     expensive and copies will be huge, perhaps IPC will all have to be
     implemented using pointer passing techniques. Another thought is that there
-may be DRAM which is closer to CPUSfrom a coherance perspective. It may make
-more sense for CPUS which some sort of \textit{Coherence Index} to share with
+may be DRAM which is closer to CPU's from a coherence perspective. It may make
+more sense for CPUs which some sort of \textit{Coherence Index} to share with
 one another.}
 
 \idea{If memory failures must occur, why not treat all function calls as RPC.
 Any lost remote memory is then just an RPC failure, the semantics of which are
-dealt with by the calling applciation. Could existing applications be modified
+dealt with by the calling application. Could existing applications be modified
 to these semantics automatically?}
 
 \textbf{Welcome to Zombieland}\cite{zombieland}
-This paper argues for a disagregated memory management scheme which decouples cpus's from memory via powersupply. The idea is thus, CPU's do not run all the time, and thereby use too much memory given that they have a static allocation of memory up front. The proposed design is to put the CPU into a zombie state when it is not being used and then poatch off of it using RDAM from other active CPU's
+This paper argues for a disaggregated memory management scheme which decouples CPU's from memory via power supply. The idea is thus, CPU's do not run all the time, and thereby use too much memory given that they have a static allocation of memory up front. The proposed design is to put the CPU into a zombie state when it is not being used and then patch off of it using RDMA from other active CPU's
 
-\idea{While this idea is mainly about power consumption it may yeild an
-interesting result, mainily a zombie memory sharing system whereby busy cores
+\idea{While this idea is mainly about power consumption it may yield an
+interesting result, mainly a zombie memory sharing system whereby busy cores
 can "eat" the memory of a zombie process. Perhaps when the busy cores require
 memory they can swap the zombie cores out to disk.}
 
 \textbf{Disk failure in the real
 world}~\cite{Schroeder:2007:DFR:1267903.1267904} Disk failures are often far
-higher than expected given data sheets. In some cases expected disk falure
-rates of 0.8\% can average as high as 3-5\% with some applications ranging upto
+higher than expected given data sheets. In some cases expected disk failure
+rates of 0.8\% can average as high as 3-5\% with some applications ranging up to
 13\%.
 
-\textbf{CacheCloud}~\cite{cachecloud} The Network at 400GB is producing packets faster than DRAM can consume them, because of this L3 cache is proposed as an alternative, rather than go to DRAM just wire NIC's directly to L3. The argument is esentally that getting the packets closer to the compute faster will get them processed faster (intuitive, but it assumes no resource really need to be used).
+\textbf{CacheCloud}~\cite{cachecloud} The Network at 400GB is producing packets faster than DRAM can consume them, because of this L3 cache is proposed as an alternative, rather than go to DRAM just wire NIC's directly to L3. The argument is essentially that getting the packets closer to the compute faster will get them processed faster (intuitive, but it assumes no resource really need to be used).
 
-What should the memory heiarchy in a DDC look like. Once could imagine that if some CPU's can send messages to their L3 caches directly then they really are just sharing caches. This is identical to a NUMA system.
+What should the memory hierarchy in a DDC look like. Once could imagine that if some CPU's can send messages to their L3 caches directly then they really are just sharing caches. This is identical to a NUMA system.
 
-\idea{Design an allocation strategy which dynamically builds NUMA systems. I.E
+\idea{Design an allocation strategy which dynamically builds NUMA systems. i.e.
 CPU caches directly message one another, and then use backing DRAM as a
-consistancy mechanism. If the DRAM is really the lateny hog and not the network
-then partitioning a system by these parameters may be benficial.}
+consistency mechanism. If the DRAM is really the latency hog and not the network
+then partitioning a system by these parameters may be beneficial.}
 
-\section{Experemential Questions}
+\textbf{LegoOS}~\cite{legoos} Argues that each network attached component be an
+individual fault domain. I think that arguing for configurable fault domains is
+superior. Further they argue for a single controller for each component which
+requires a lot of overhead. They argue to \textit{virtualize}, I think I can
+make an argument for raw hardware. Loose coupling is pushed hard, a counter
+argument for tight coupling with an "amortized" failure cost could be far more
+compelling. Again I like the idea of \textit{binding} a failure domain.
+
+LegoOS uses an ExCache, which is just a large ammount of DRAM associated with
+each processor to give them good locality. This is really a violation of what
+DDC will be in the future and deserves an explicit argument against it as
+being regressive, and false. At the same time an argument for the necessity of
+ExCache could be made if all of the backing memory is NVM. In which case
+caching a bunch of cores with a piece of fast DRAM makes total sense so that
+faults can be isolated. The big problem is that ExCache is not shared! They
+also seem to cut out TLB's because the idea of swapping virtual address spaces
+is not fast.
+
+\idea{It seems that one of the core concepts of DDC is the decoupling of
+physical memory and CPU cores. The ephemeral boundary typically exists at the L3
+cache level. Perhaps there is an argument to be made for fixing a chunk of
+physical memory to a set of CPU's, letting them coordinate over L3 cache, and
+then writeback to main memory when the time comes. the consistency level could
+be maintained on a per CPU allocation boundary.}
+
+\idea{Developers do not understand fault domains at the intra process level.
+However, for the savvy dev it may be nice to give them some form of fault
+tolerant knowledge. For example we could develop a signal (partial fault) which
+the DDC OS raises and which a process can use to resolve issues of partial
+failure before dying. These would all have to be mapped into the OS and be
+issued when the processes dies.}
+
+
+\section{Experimental Questions}
+\label{sec:experiment}
 
 What is the mean time to failure for a byte on DRAM, FLASH, NVME? Perform a
 back of the envelope calculation as to the expected mean time to failure on a
-rack discriped at the beginning of section 2 of~\cite{189914}. How often do
-failures occur in a data center filled with such racks? How much redundancy is
+rack descried at the beginning of section 2 of~\cite{189914}. How often do
+failures occur in a data centre filled with such racks? How much redundancy is
 justified?
 
-DDC represents a distributed OS that is far tightly coupled than prior WAN and LAN approaches.
+DDC represents a distributed OS that is far tightly coupled than prior WAN and
+LAN approaches.
 
+What view should a user have of a DDC? Should they know that individual
+components are connected over the network? Should all devices be mounted? How
+should developers reason about latency given a single PC view of a DDC?
+Arguably if everything is connected over the network latency should be the
+same, just slower.
+
+LegoOS~\cite{legoos} argues for heterogeneity in the DDC. This is an argument
+which should be countered. A key questions is if DDC at a rack scale will be
+homogeneous. I think that individual blades will probably be manufactured to
+have the same silicon on them. They cite TPU, which has dedicated racks.
+
+What is the correct failure domain? if I decide that a process is the correct
+failure domain, what do I do when some of the process disappears? \idea{Could it
+be possible to persist a process on a context switch? If NVM is a thing perhaps
+the act of migrating a process out of a processor could be a persistent
+operation. The question is what to do with side effects. A process would need
+to be persisted every time it made an action which could have a causal
+effect.}
+
+A quick survey of DC applications and their fault tolerance requirements would
+be a great motivator for the binding tactics I'm arguing for i.e. How many
+datacenters run Cassandra to manage their fault tolerance, how many are
+running ETCD? what are the protocols for any one of those processes failing in
+the first place? Treating a single rack as a partially independent failure
+domain is silly, lets argue for the number of failures which would effect an
+entire rack, and then talk about the ones that compromise some sub component of
+the rack. If the former highly outweighs the later, then it still falls to
+software to deal with fault tolerance and persistence and not the OS.
+
+Before making any large scale design decision make sure to REALLY understand
+the benefits of splitkernel / multi kernel design vs monolithic.
+
+\section{Arguments}
+\label{sec:arguments}
+
+Current servers share failure domains, why then should disaggregated servers, which
+in their manifestation appear to act as a single machine attempt to deal with
+fault tolerance at the kernel level? We argue that performance not fault
+tolerance should be the aim of a server, and that fault tolerance is an end to
+end concern which should be handled by software running on disaggregated
+machines rather than by the kernel. We propose the concept of \textit{binding
+failure domains} resources allocated per bind fate share. We propose multilevel
+binding at the process, VM and OS level. What then is a distributed OS to do in
+the face of a partial failure? The key idea here is that while a process might fail, an OS is eternal (at least in the face of a partial failure, and given that the OS itself is protected.
+
+There is an argument to be made that as long as a process does not have
+external effect's than it can be protected by the OS. However, if it makes
+external calls, networking or writes, then it must protect itself from itself.
+The argument is one of end to end: Any process which admits external effects,
+and wishes to operate under the assumption that those external effects are
+respected but account for them themselves. No operating system in the past has
+ever made guarantees to software which sent messages beyond it's boundaries, or
+which passed messages over the network, or to the disk.
 
 \section{Reading}
+\label{sec:reading}
 \begin{itemize}
     \item{Beyond process-centric operating systems}~\cite{189914}\rpaper{}
     \item{Dark Packets}\rabstract{}
     \item{CacheCloud}~\cite{cachecloud}\rintro{+}
     \item{It's time for low latency (osterhouse)}
-    \item{LegoOS}\rintro{}
+    \item{LegoOS}\cite{legoos}\rpaper{}
     \item{fault isolation (Amandas work)}\rintro{}
     \item{Decibel - Mihir}\rabstract{}
     \item{Popcorn Linux}
-    \item{Helios - Heterogenious multiprocessing with satelite kernels}~\cite{helios}\rabstract{}
+    \item{Helios - Heterogeneous multiprocessing with satellite kernels}~\cite{helios}\rabstract{}
     \item{Welcome to Zombieland}~\cite{zombieland}\rintro{}
     \item{Disk failure in the real world}~\cite{Schroeder:2007:DFR:1267903.1267904}\rabstract{}
+    \item{The Multikernel: A new OS Architecture for Scalable Multicore Systems}~\cite{the-multikernel}\rabstract{}
 
 \end{itemize}
