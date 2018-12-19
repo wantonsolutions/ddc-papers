@@ -160,6 +160,23 @@ software to deal with fault tolerance and persistence and not the OS.
 Before making any large scale design decision make sure to REALLY understand
 the benefits of splitkernel / multi kernel design vs monolithic.
 
+\idea{(Sleepy) Use Kademlia as either virtual memory or as page table lookups}
+How should memory be accessed in a distributed rack? Lego's would say to use
+virtual memory~\cite{legoos} but that does not take into account that failures
+can and do occur. A page table is really just an address prefix, and a
+traversal of the page table is just an additional lookup for an extension of
+the prefix. Kademlia looks up each bit at a time, but it can be excelerated
+using buckets where groups of a hashes ID are bunched together. Assuming that
+there are processes running on the disaggregated rack when they want to alloc
+more memory or access a file, they perform a Kademlia \textit{FIND\_NODE}
+operation. If they do not find the file (potentially because it has failed),
+the lookup fails and the region of memory cannot be mapped into the processes
+memory region. These semantics assume copy on read. The memory model would be
+closer to a segmented model, sort of like Multics where the address space of
+any given process would just be a series of memory mapped regions. This has the
+advantage that processes operate in a single failure domain while still being
+able to share.
+
 \section{Arguments}
 \label{sec:arguments}
 
