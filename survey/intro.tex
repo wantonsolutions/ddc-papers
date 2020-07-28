@@ -115,6 +115,42 @@ the DDC OS raises and which a process can use to resolve issues of partial
 failure before dying. These would all have to be mapped into the OS and be
 issued when the processes dies.}
 
+\textbf{Clover~\cite{254441}}
+
+Persistant memory is explored in the context of a key value store. The point
+of this paper is to explore the design space of how to use and access
+persistent memory (Non volitile main memory). The discussion is in the
+context of where the data and metadata should be stored. The authors explore
+a number of design decisions and explore protocols and archetectures with
+various tradeoffs. See figure 1 of the paper. The authors draw a distinction
+between active and passive memory. Active memory has a CPU like component on
+the memory controller which controlls access. Passive memory is 100 percent
+controlled remotely. In this case by an RDMA nic running at 100gbps. The
+authors explore where to place the controller. They eventually come to the
+design that a metadata server should exist seperate from the CPU's and
+memory. It is accessed only to determine where the appropriate memory for a
+given key is. Any attempt to put the metadata server between the CPU and the
+Memory leads to performance degredation, but can improve write contention. A
+large component of the solution space here is to allow reads and writes to
+execute concurrently in the normal case. The autors propose a chain like data
+structure with chaches of pointers to the most recent data which allows
+processers to bypass the meta data server unless their information is out of
+date. 
+
+Even with thier best efforts they get memory latencies of around 1us. This is
+super good, but far from the access latency of main memory. Finally they use
+values of size 1KB in order to saturate throughput. So the idea that
+persistant memory is going to be used for byte level access is not realistic
+as of yet.
+
+\idea{Given the current landscape using persistant memory for paging out
+might be the correct decision. This would allow huge banks of persistant
+pages, which could be accessed like a key value store. It would also allow a
+program to have a logical point in its execution at which it's state is
+persited. Users of such a system would still need to run a \textit{Persist}
+instruction to create a snapshot. But the cost of performing the snapshot
+would be limited to the working set of main memory.}
+
 
 \section{Experimental Questions}
 \label{sec:experiment}
@@ -207,6 +243,7 @@ which passed messages over the network, or to the disk.
     \item{CacheCloud}~\cite{cachecloud}\rintro{+}
     \item{It's time for low latency (osterhouse)}
     \item{LegoOS}\cite{legoos}\rpaper{}
+    \item {Clover}\cite{254441}\rpaper{}
     \item{fault isolation (Amandas work)}\rintro{}
     \item{Decibel - Mihir}\rabstract{}
     \item{Popcorn Linux}
