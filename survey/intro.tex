@@ -115,7 +115,7 @@ the DDC OS raises and which a process can use to resolve issues of partial
 failure before dying. These would all have to be mapped into the OS and be
 issued when the processes dies.}
 
-\textbf{Clover~\cite{254441}}
+\textbf{Clover~\cite{clover}}
 
 Persistant memory is explored in the context of a key value store. The point
 of this paper is to explore the design space of how to use and access
@@ -150,6 +150,45 @@ program to have a logical point in its execution at which it's state is
 persited. Users of such a system would still need to run a \textit{Persist}
 instruction to create a snapshot. But the cost of performing the snapshot
 would be limited to the working set of main memory.}
+
+\textbf{Storm ~\cite{storm}} RDMA perfomance and scaling paper. They propose
+a transactional later for improving one sided operations on RDMA. They also
+do work to demonstrate that one sided operations are better suited to
+connetion based protocols rather than connectionless (UDP) with one sided
+operations. This is in heavy contrast to prior work.
+
+Shu-Ting pointed out that this is really the logical successer to the Farm,
+Herd, eRPC work. With this being the version for the latest version of
+Melanox RDMA enabled NICs. I believe that the key takeaways from this work
+are the absolute values from the measurements taken. It is a snapshot of the time.
+
+Also the three takeaways of persistant connections, scaling to the rack
+level, and requirement for imbedded data structures are key. The data
+structure / pointer chaising aspect is something that I had pointed out to
+alex as a potential succession to the work we were doing on smartNIC's.
+
+\idea{I could take each of the papers in the progression that Shu-Ting
+pointed out and build a table / plot ofthe competing technologies. The
+interesting takeawyas would be the projections of where the technology is
+going. For example are we processing requests at an ever increasing rate? Is
+there a point in time at which we would expect certian traditional approaches
+to start applying again for disaggregated techonologies?}
+
+\textbf{LITE ~\cite{lite}} Low level abstractions for a kernel which allow
+for high perfomance RDMA. Key here is that they avoid copy by using physical
+addresses for user space buffers. They provide a kernel level abstraction for
+better integrating data center aplications with RDMA.
+
+\idea{I think that what this paper is getting at is that remote resources are
+difficult to interact with. My thought here is not only should a SmartNIC
+allow a programmer to perform API calls on remote data structures, that
+should be it's explicit purpose. I.E a smartnic should be a semantic gateway
+to remote structures. A programmer provides an API to a data structure such
+as a B-Tree, which is then offloaded onto the NIC. In cases where access is
+local, the B-Tree is accessed locally. When Remote the NIC amortizes the
+round trips by opaquely performing the operations in bulk. This will reduce
+overheads in the form of pointer chaising when many round trips are
+pqincurred.}
 
 
 \section{Experimental Questions}
@@ -243,7 +282,7 @@ which passed messages over the network, or to the disk.
     \item{CacheCloud}~\cite{cachecloud}\rintro{+}
     \item{It's time for low latency (osterhouse)}
     \item{LegoOS}\cite{legoos}\rpaper{}
-    \item {Clover}\cite{254441}\rpaper{}
+    \item {Clover}\cite{clover}\rpaper{}
     \item{fault isolation (Amandas work)}\rintro{}
     \item{Decibel - Mihir}\rabstract{}
     \item{Popcorn Linux}
