@@ -1,15 +1,15 @@
 \section{Introduction}
 \label{sec:intro}
 
-This document is broken into sections for the purpose of partioning research
+This document is broken into sections for the purpose of partitioning research
 concerns. Section~\ref{sec:issues} is a laundry list of design points in the
 DDC space. The intent is to build a cross paper set of arguments and references
-for each design point. Section~\ref{sec:related} summerizes papers at a high
-level, and contains ideas relevent to those papers.
+for each design point. Section~\ref{sec:related} summarizes papers at a high
+level, and contains ideas relevant to those papers.
 Section~\ref{sec:experiment} contains potential back of the envelope and large
 scale experiments which could be run to either validate or promote further
 research into an idea. Section~\ref{sec:arguments} is scratch space for
-rehetorical arguments. finally Section~\ref{sec:reading} contains citations to
+rhetorical arguments. finally Section~\ref{sec:reading} contains citations to
 related work and tags for the level of detail at which they have been read.
 
 \section{DDC design issues}
@@ -38,7 +38,7 @@ that cache coherence is impossible at the scale of 100,000 cores and thus new
 memory models are required. Claims also include high radix optical switching
 will make NVM accessible at ultra low latencies. Key to their architectural
 proposal is that there will be a \textit{shared something} model where each CPU
-has it's own DRAm cache, and there is a large NVM shared resource behind all of
+has it's own DRAM cache, and there is a large NVM shared resource behind all of
 it. Essentially they are just replacing main memory with NVM and using DRAM as
 cache with the difference that main is also persistent.
 
@@ -91,7 +91,7 @@ make an argument for raw hardware. Loose coupling is pushed hard, a counter
 argument for tight coupling with an "amortized" failure cost could be far more
 compelling. Again I like the idea of \textit{binding} a failure domain.
 
-LegoOS uses an ExCache, which is just a large ammount of DRAM associated with
+LegoOS uses an ExCache, which is just a large amount of DRAM associated with
 each processor to give them good locality. This is really a violation of what
 DDC will be in the future and deserves an explicit argument against it as
 being regressive, and false. At the same time an argument for the necessity of
@@ -109,7 +109,7 @@ then writeback to main memory when the time comes. the consistency level could
 be maintained on a per CPU allocation boundary.}
 
 \idea{Developers do not understand fault domains at the intra process level.
-However, for the savvy dev it may be nice to give them some form of fault
+However, for the savvy developer it may be nice to give them some form of fault
 tolerant knowledge. For example we could develop a signal (partial fault) which
 the DDC OS raises and which a process can use to resolve issues of partial
 failure before dying. These would all have to be mapped into the OS and be
@@ -117,78 +117,78 @@ issued when the processes dies.}
 
 \textbf{Clover~\cite{clover}}
 
-Persistant memory is explored in the context of a key value store. The point
+Persistent memory is explored in the context of a key value store. The point
 of this paper is to explore the design space of how to use and access
-persistent memory (Non volitile main memory). The discussion is in the
+persistent memory (Non volatile main memory). The discussion is in the
 context of where the data and metadata should be stored. The authors explore
-a number of design decisions and explore protocols and archetectures with
-various tradeoffs. See figure 1 of the paper. The authors draw a distinction
+a number of design decisions and explore protocols and architectures with
+various trade-offs. See figure 1 of the paper. The authors draw a distinction
 between active and passive memory. Active memory has a CPU like component on
-the memory controller which controlls access. Passive memory is 100 percent
-controlled remotely. In this case by an RDMA nic running at 100gbps. The
+the memory controller which controls access. Passive memory is 100 percent
+controlled remotely. In this case by an RDMA NIC running at 100Gbps. The
 authors explore where to place the controller. They eventually come to the
-design that a metadata server should exist seperate from the CPU's and
+design that a metadata server should exist separate from the CPU's and
 memory. It is accessed only to determine where the appropriate memory for a
 given key is. Any attempt to put the metadata server between the CPU and the
-Memory leads to performance degredation, but can improve write contention. A
+Memory leads to performance degradation, but can improve write contention. A
 large component of the solution space here is to allow reads and writes to
-execute concurrently in the normal case. The autors propose a chain like data
-structure with chaches of pointers to the most recent data which allows
-processers to bypass the meta data server unless their information is out of
+execute concurrently in the normal case. The authors propose a chain like data
+structure with caches of pointers to the most recent data which allows
+processes to bypass the meta data server unless their information is out of
 date. 
 
-Even with thier best efforts they get memory latencies of around 1us. This is
+Even with their best efforts they get memory latencies of around 1us. This is
 super good, but far from the access latency of main memory. Finally they use
 values of size 1KB in order to saturate throughput. So the idea that
-persistant memory is going to be used for byte level access is not realistic
+persistent memory is going to be used for byte level access is not realistic
 as of yet.
 
-\idea{Given the current landscape using persistant memory for paging out
-might be the correct decision. This would allow huge banks of persistant
+\idea{Given the current landscape using persistent memory for paging out
+might be the correct decision. This would allow huge banks of persistent
 pages, which could be accessed like a key value store. It would also allow a
 program to have a logical point in its execution at which it's state is
-persited. Users of such a system would still need to run a \textit{Persist}
+persisted. Users of such a system would still need to run a \textit{Persist}
 instruction to create a snapshot. But the cost of performing the snapshot
 would be limited to the working set of main memory.}
 
-\textbf{Storm ~\cite{storm}} RDMA perfomance and scaling paper. They propose
-a transactional later for improving one sided operations on RDMA. They also
+\textbf{Storm ~\cite{storm}} RDMA performance and scaling paper. They propose
+a transnational later for improving one sided operations on RDMA. They also
 do work to demonstrate that one sided operations are better suited to
-connetion based protocols rather than connectionless (UDP) with one sided
+connection based protocols rather than conectionless (UDP) with one sided
 operations. This is in heavy contrast to prior work.
 
-Shu-Ting pointed out that this is really the logical successer to the Farm,
+Shu-Ting pointed out that this is really the logical successor to the Farm,
 Herd, eRPC work. With this being the version for the latest version of
 Melanox RDMA enabled NICs. I believe that the key takeaways from this work
 are the absolute values from the measurements taken. It is a snapshot of the time.
 
-Also the three takeaways of persistant connections, scaling to the rack
-level, and requirement for imbedded data structures are key. The data
-structure / pointer chaising aspect is something that I had pointed out to
-alex as a potential succession to the work we were doing on smartNIC's.
+Also the three takeaways of persistent connections, scaling to the rack
+level, and requirement for embedded data structures are key. The data
+structure / pointer chasing aspect is something that I had pointed out to
+Alex as a potential succession to the work we were doing on SmartNIC's.
 
 \idea{I could take each of the papers in the progression that Shu-Ting
-pointed out and build a table / plot ofthe competing technologies. The
-interesting takeawyas would be the projections of where the technology is
+pointed out and build a table / plot of the competing technologies. The
+interesting takeaways would be the projections of where the technology is
 going. For example are we processing requests at an ever increasing rate? Is
-there a point in time at which we would expect certian traditional approaches
-to start applying again for disaggregated techonologies?}
+there a point in time at which we would expect certain traditional approaches
+to start applying again for disaggregated technologies?}
 
 \textbf{LITE ~\cite{lite}} Low level abstractions for a kernel which allow
-for high perfomance RDMA. Key here is that they avoid copy by using physical
+for high performance RDMA. Key here is that they avoid copy by using physical
 addresses for user space buffers. They provide a kernel level abstraction for
-better integrating data center aplications with RDMA.
+better integrating data center applications with RDMA.
 
 \idea{I think that what this paper is getting at is that remote resources are
 difficult to interact with. My thought here is not only should a SmartNIC
 allow a programmer to perform API calls on remote data structures, that
-should be it's explicit purpose. I.E a smartnic should be a semantic gateway
+should be it's explicit purpose. I.E a SmartNIC should be a semantic gateway
 to remote structures. A programmer provides an API to a data structure such
 as a B-Tree, which is then offloaded onto the NIC. In cases where access is
 local, the B-Tree is accessed locally. When Remote the NIC amortizes the
 round trips by opaquely performing the operations in bulk. This will reduce
-overheads in the form of pointer chaising when many round trips are
-pqincurred.}
+overheads in the form of pointer chasing when many round trips are
+concurred.}
 
 
 \section{Experimental Questions}
@@ -197,7 +197,7 @@ pqincurred.}
 What is the mean time to failure for a byte on DRAM, FLASH, NVME? Perform a
 back of the envelope calculation as to the expected mean time to failure on a
 rack descried at the beginning of section 2 of~\cite{189914}. How often do
-failures occur in a data centre filled with such racks? How much redundancy is
+failures occur in a data center filled with such racks? How much redundancy is
 justified?
 
 DDC represents a distributed OS that is far tightly coupled than prior WAN and
@@ -240,7 +240,7 @@ How should memory be accessed in a distributed rack? Lego's would say to use
 virtual memory~\cite{legoos} but that does not take into account that failures
 can and do occur. A page table is really just an address prefix, and a
 traversal of the page table is just an additional lookup for an extension of
-the prefix. Kademlia looks up each bit at a time, but it can be excelerated
+the prefix. Kademlia looks up each bit at a time, but it can be accelerated
 using buckets where groups of a hashes ID are bunched together. Assuming that
 there are processes running on the disaggregated rack when they want to alloc
 more memory or access a file, they perform a Kademlia \textit{FIND\_NODE}
@@ -283,12 +283,62 @@ which passed messages over the network, or to the disk.
     \item{It's time for low latency (osterhouse)}
     \item{LegoOS}\cite{legoos}\rpaper{}
     \item {Clover}\cite{clover}\rpaper{}
-    \item{fault isolation (Amandas work)}\rintro{}
-    \item{Decibel - Mihir}\rabstract{}
+    \item{fault isolation (Amanda's work)}\rintro{}
+    \item{Decibel - Mohair}\rabstract{}
     \item{Popcorn Linux}
     \item{Helios - Heterogeneous multiprocessing with satellite kernels}~\cite{helios}\rabstract{}
     \item{Welcome to Zombieland}~\cite{zombieland}\rintro{}
     \item{Disk failure in the real world}~\cite{Schroeder:2007:DFR:1267903.1267904}\rabstract{}
-    \item{The Multikernel: A new OS Architecture for Scalable Multicore Systems}~\cite{the-multikernel}\rabstract{}
+    \item{The Multikernel: A new OS Architecture for Scaleable Multicore Systems}~\cite{the-multikernel}\rabstract{}
 
 \end{itemize}
+
+
+\section{notes}
+\label{sec:thoughts}
+
+Alex suggested that I take a view of the hardware landscape prior to making
+any proposal. I suggested that we could do some large scale benchmarking of
+know OS primitives and check which ones are essential to be local, and which
+can be make remote. This is a decent approach because it answers the
+question, \textit{How can a traditional kernel be modified to be
+disaggregated?} This is a problem which is slightly smaller in scope to what
+I should be proposing. If I take Alex's thought seriously I should not only
+collect a set of pieces of hardware, but completely understand what their
+limitations are. What are the characteristics which make them good or bad for
+disaggregated computing? For example in the Storm paper~\cite{storm} they
+note that advancements in RNIC technology have increased the cache sizes and
+allowed them to keep flow control and transmission state on the RNIC. This is
+one example of a hardware feature which has real cost implications whose
+absolute value determines the scalability of a rack scale computer. If I can
+find a few such hardware features which are the current bottle necks we can
+look to future technologies with will alleviate the bottleneck. With this in
+hand a study of current hardware trends will allow us to make good
+predictions about which aspects of disaggregated computing are hard stops, or
+potential go aheads. The final takeaway for the survey of the hardware
+landscape is that we will be able to point to areas in the architecture where
+new software innovations can come to the rescue. An example of this is the
+chain writing protocol in clover.
+
+I think that a brilliant take away from this sort of endeavor would be an
+approach to system design like SEDA which automatically adjusts resource
+allocation based on contention and bottlenecks. Except that in my case the
+measurement would be delay as a product of remote memory accesses. I.e a
+system could change it's location to be closer to or further away from
+resources depending on what the access latency demands. Think of an actor
+based operating system which could migrate it's state between distinct
+execution environments.
+
+\section{Todo} 
+\label{sec:todo}
+%% 
+\begin{itemize} 
+
+     \item{Make schedule to keep track of paper reading}
+
+    \item {Make taxonomy of hardware i.e smartnics, switches, memory
+    controllers, nvm, accelerators which might play a role and link to the
+    actual hardware with descriptions.}
+
+\end{itemize}
+
