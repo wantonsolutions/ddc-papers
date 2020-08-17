@@ -274,8 +274,85 @@ respected but account for them themselves. No operating system in the past has
 ever made guarantees to software which sent messages beyond it's boundaries, or
 which passed messages over the network, or to the disk.
 
+\subsection{Remote Memory Controller}
+
+Based on a lot of reading it seems that there is a big opprotunity for
+innovation with reguard to distributed data structures and client side
+caching when using one sided RDMA. People are solving this problem left right
+and center~\cite{cell}~\cite{serf}~\cite{aguilera2019designing}. In each they
+take a custom approach to dealing with write contention and versioning, with
+the BTree paper probably being the most elegant. I think that there is a very
+systems based approach that could be used to give each of these distinct
+systems a platform. Specifically I think that they could use a memory
+controller.
+
+What would this memory controller do? It would provide semantics for
+performing remote reads and writes. The main point would be to enable shared
+data, and have almost no overhead when the data is partitioned. It would
+therefore need to be low overhead, and make good use of existing hardware
+trends. For starters there is no option that it would not run on RDMA nics.
+I'm not sure if they need to be smartnics or if using some user space
+solution would work. The smartnics could manage some kinds of state but it's
+not obvious where.
+
+I think that the key thing to do would be to make writes propagate fast, and
+dead with contention. One way is to have tones of versioning and to do
+checksomes. Personally I think that the memory itself should do the
+versioning. If we have memory that allows for an add operation to be done at
+the memory, then each block can in isolation provide serializability by using
+a counter. Then each write increments the counter and a failed read can be
+detectecd when the counter does not match. Essentailly when a read fails the
+data, plus the version can be returned, and in the write case the version
+number is incremented. This could also allow for the memory to act as a
+moniter and lock access to itself. This is only important if writes are
+happening. I think that it would be very key to propagate writes, or at least
+the knowledge that some region of remote memory is dirty. I think that having
+a memory write generate a message to all client machines to mark the memory
+as dirty is essential. That way there is as low latency for contention
+detection as possible. Further I think that caching this dirty block
+information at the switch is a tempting idea as it also provides a
+centralized location to detect conficts, to lock, and to propagate new
+infomration.
+
+What I've described up to this point is the lowest level interface of the
+controller. Essentiall a memory centric layer that makes reads, writes, and
+deals with versioning and propagating of information. It would exist close to
+the hardware.
+
+Above the read write layer would be a transactional layer. This would expose
+transactions to applications and allow them to reason about distributed
+memory more clearly. Specifically, has the data that I wanted to get been
+gotten, and have a processed all the writes I needed to process. The point of
+the transactional layer is to batch operations which require multiple
+updates. In the case of a structure like a distributed B-Tree this might
+involve a traversal of the tree, followed by a write to a specific block.
+Here is where the determination between client side and server side caching
+can be made. I.e if a client want to use cached data they can submit a set of
+reads and writes to the transactional layer with a list of versions for their
+data. If the transaction is valid and the version numbers are up to date,
+then the operation goes through.
+
+These two pieces are a low level building block for applications to construct
+their own distributed structures with lower overhead and complexity. It also
+hides things like RDAM and can allow for a single address space abstraction,
+but with explicit local and remote pointers.
+
+The way I'm imagining this is that a distributed object would be built once,
+with a single discription for the local and remote parts, however some memory
+would be labeled cached, and that would live in local memory untill a remote
+request is made. When the remote request is made the transactional
+syncronziation occurs. Which again in the case of having zero shared data
+results in no contention and the write and read should just go through, in
+the worst case the local cache needs to be updated and the operation fails.
+
+
+
+
+
 \section{Reading}
 \label{sec:reading}
+
+\subsection{Read}
 \begin{itemize}
     \item{Beyond process-centric operating systems}~\cite{189914}\rpaper{}
     \item{Dark Packets}\rabstract{}
@@ -289,7 +366,19 @@ which passed messages over the network, or to the disk.
     \item{Helios - Heterogeneous multiprocessing with satellite kernels}~\cite{helios}\rabstract{}
     \item{Welcome to Zombieland}~\cite{zombieland}\rintro{}
     \item{Disk failure in the real world}~\cite{Schroeder:2007:DFR:1267903.1267904}\rabstract{}
-    \item{The Multikernel: A new OS Architecture for Scaleable Multicore Systems}~\cite{the-multikernel}\rabstract{}
+    \item{The Multikernel: A new OS Architecture for Scaleable Multicore Systems}~\cite{the-multikenel}\rabstract{}
+    \item{Designing Far Memory Data Structures: Think Outside the Box}~\cite{aguilera2019designing}
+    \item{SuRF: Practical Range Query Filtering with Fast Succint Tries}~\cite{surf}\rabstract{}
+    \item{Can Far Memory Improve Job Throughput?}~\cite{10.1145/3342195.3387522}
+    \item{Remote Reigons: a simple abstraction for remote memory}~\cite{215933}
+    \item{Balancing CPU and Network in the Cell Distributed B-Tree Store}~\cite{cell}
+
+\end{itemize}
+
+\subsection{To Read}
+\begin{itemize}
+    \item{Taking advantage of a disaggregated storage and compute architecture. In Spark + AI Summit 2019 (SAIS'19)}
+    \item{Introducing bryce canyon: Our next-generation storage platform. https://code:fb:com/data-center-engineering/introducing-bryce-canyon-our-next-generation-storage-platform/ }
 
 \end{itemize}
 
@@ -342,3 +431,30 @@ execution environments.
 
 \end{itemize}
 
+\section{Hardware}
+
+\textbf{RDMA}
+\todo{list of RDMA NIC's thier prices and associated papers with flaws and stregnths}
+\\
+\textbf{Gen-Z}
+\todo{where has this been used, what is the future predicted performance}
+\\
+\textbf{NVM}
+\todo{What are the existing technologies and pricepoints (yiying says 6.18 per GB)}
+\\
+\textbf{Intiellegent Ram}
+
+Are there any exmaples of computing actually occuring at ram. The argument
+here is that the computation can be deffered to ram. I think that it's
+something like a computational moniter. Maybe there is some sort of argument
+for computational offload at the memory.
+
+
+
+\section{People}
+
+Yiying Zhang - UCSD
+Sharad Singhal - Hewlet Packard (The machine)
+Kimberly Keeton - Hewlet Packard (The machine)
+David G. Anderson - Carnegie Mellon
+Stanko Novakovic - MSR (so-NUMA)

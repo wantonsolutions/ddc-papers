@@ -165,3 +165,73 @@ keywords = {RDMA, indirection, low-latency network, network stack},
 location = {Shanghai, China},
 series = {SOSP ’17}
 }
+
+@InProceedings{aguilera2019designing,
+author = {Aguilera, Marcos and Keeton, Kimberly and Novakovic, Stanko and Singhal, Sharad},
+title = {Designing Far Memory Data Structures: Think Outside the Box},
+organization = {ACM},
+booktitle = {17th Workshop on Hot Topics in Operating Systems (HotOS)},
+year = {2019},
+month = {May},
+abstract = {Technologies like RDMA and Gen-Z, which give access to memory outside the box, are gaining in popularity. These technologies provide the abstraction of far memory, where memory is attached to the network and can be accessed by remote processors without mediation by a local processor. Unfortunately, far memory is hard to use because existing data structures are mismatched to it. We argue that we need new data structures for far memory, borrowing techniques from concurrent data structures and distributed systems. We examine the requirements of these data structures and show how to realize them using simple hardware extensions},
+url = {https://www.microsoft.com/en-us/research/publication/designing-far-memory-data-structures-think-outside-the-box/},
+}
+
+@inproceedings{surf,
+author = {Zhang, Huanchen and Lim, Hyeontaek and Leis, Viktor and Andersen, David G. and Kaminsky, Michael and Keeton, Kimberly and Pavlo, Andrew},
+title = {SuRF: Practical Range Query Filtering with Fast Succinct Tries},
+year = {2018},
+isbn = {9781450347037},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3183713.3196931},
+doi = {10.1145/3183713.3196931},
+booktitle = {Proceedings of the 2018 International Conference on Management of Data},
+pages = {323–336},
+numpages = {14},
+keywords = {surf, range filter, fast succinct tries, lsm-trees, succinct data structures},
+location = {Houston, TX, USA},
+series = {SIGMOD ’18}
+}
+
+@inproceedings{10.1145/3342195.3387522,
+author = {Amaro, Emmanuel and Branner-Augmon, Christopher and Luo, Zhihong and Ousterhout, Amy and Aguilera, Marcos K. and Panda, Aurojit and Ratnasamy, Sylvia and Shenker, Scott},
+title = {Can Far Memory Improve Job Throughput?},
+year = {2020},
+isbn = {9781450368827},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3342195.3387522},
+doi = {10.1145/3342195.3387522},
+booktitle = {Proceedings of the Fifteenth European Conference on Computer Systems},
+articleno = {14},
+numpages = {16},
+location = {Heraklion, Greece},
+series = {EuroSys ’20}
+}
+
+@inproceedings {215933,
+author = {Marcos K. Aguilera and Nadav Amit and Irina Calciu and Xavier Deguillard and Jayneel Gandhi and Stanko Novakovi{\'c} and Arun Ramanathan and Pratap Subrahmanyam and Lalith Suresh and Kiran Tati and Rajesh Venkatasubramanian and Michael Wei},
+title = {Remote regions: a simple abstraction for remote memory},
+booktitle = {2018 {USENIX} Annual Technical Conference ({USENIX} {ATC} 18)},
+year = {2018},
+isbn = {978-1-939133-01-4},
+address = {Boston, MA},
+pages = {775--787},
+url = {https://www.usenix.org/conference/atc18/presentation/aguilera},
+publisher = {{USENIX} Association},
+month = jul,
+}
+ 
+@inproceedings {cell,
+author = {Christopher Mitchell and Kate Montgomery and Lamont Nelson and Siddhartha Sen and Jinyang Li},
+title = {Balancing {CPU} and Network in the Cell Distributed B-Tree Store},
+booktitle = {2016 {USENIX} Annual Technical Conference ({USENIX} {ATC} 16)},
+year = {2016},
+isbn = {978-1-931971-30-0},
+address = {Denver, CO},
+pages = {451--464},
+url = {https://www.usenix.org/conference/atc16/technical-sessions/presentation/mitchell},
+publisher = {{USENIX} Association},
+month = jun,
+} 
