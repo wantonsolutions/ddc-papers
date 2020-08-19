@@ -190,6 +190,25 @@ round trips by opaquely performing the operations in bulk. This will reduce
 overheads in the form of pointer chasing when many round trips are
 concurred.}
 
+\textbf{DDC applications~\cite{254120}} This paper is a nice breakdown of how
+OS's should be designed around applications. It forwards the view that prior
+attemps at DDC have aimed to make things like POSIX interfaces work, but that
+they really are suboptimal for DDC. Specifically they argue for the use of an
+intelliget rack level MMU which maintains virtual adresses for a cluster.
+They also argue for the fault tolerance cases stating that application should
+take grants of memory, support having their memory stolen, and be aware of
+failures. They detail the alternate cases of failures, cpu alive with memory
+dead, and memory dead but compute alive. In the first case they suggest that
+all application checkpoint so that another cpu can take over with the same
+memory location post failure. In the latter case they suggest that
+applications be prepared to have non persistant memory fail and perhaps adopt
+a scheme where they can checkpoint to persistant reliable storage
+occasionally.
+
+Overall this was a good position paper, but it does not address shared memory
+which will be an issue that probably needs to be solved. I think that this is
+perhaps one of the more thoughful papers on DDC. 
+
 
 \section{Experimental Questions}
 \label{sec:experiment}
@@ -372,6 +391,7 @@ the worst case the local cache needs to be updated and the operation fails.
     \item{Can Far Memory Improve Job Throughput?}~\cite{10.1145/3342195.3387522}
     \item{Remote Reigons: a simple abstraction for remote memory}~\cite{215933}
     \item{Balancing CPU and Network in the Cell Distributed B-Tree Store}~\cite{cell}
+    \item{Dissaggregation and the application}~\cite{254120}
 
 \end{itemize}
 
