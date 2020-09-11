@@ -1,0 +1,102 @@
+\section{Introduction}
+\label{sec:intro}
+
+%%State of the world
+Disaggregated computing promises higher resource density, increased
+power-efficiency, and flexible application scalability in
+datacenters. While enticing, these benefits have remained mostly
+untapped (with the exception of persistent storage) due to the
+proportionally large overhead of accessing remote resources. Nowhere is
+this disparity more noticeable than remote memory. Separating CPUs last level cache
+from their main memory incurs roughly a 20x overhead (approximately
+50\textit{ns} to 1\textit{us}). Such an overhead may be acceptable for
+some workloads, such as paging out large amounts of data, but are
+entirely unrealistic when multiple CPUs requires consistency for
+frequent reads and writes to remote memory. Researchers and industry
+leaders have proposed techniques which reduce cost of write contention
+with regard to remote memory~\cite{clover,aguilera2019designing}.
+Their goal is to provide $O(1)$ write costs in the common case. To
+achieve this strategies such as versioning, and serialization enforced
+by the memory itself have been proposed. These strategies have
+significant shortcomings: versioning at the endhost means that a write
+must fail at the remote memory location, and a failed response must be
+received by the writer prior to it learning that the write is out of
+date and must be redone.  Serialization at the memory is more tenable,
+but requires currently nonexistent technologies, mainly for a memory
+controller to perform arithmetic, and to trigger notification messages
+to CPU's which wish to learn about remote memory which has been
+dirtied by a write. We consider an alternative centralized approach
+which achieves the same benefit of a memory centric architecture, with
+fundamentally lower latency, and current technology.
+
+%%our position
+This work makes the contention that a programmable switch is an ideal
+centralized point at which to implement a remote memory controller
+for rack level disaggregation. Under the assumption that all reads and
+writes are performed within a rack using RDMA a programmable top of
+rack switch (TOR) will see every memory operation. This fact allows it
+to act as a centralized serialization point, where the last instance
+of concurrency between the reads and writes of remote CPUs is the
+egress port of the switch. The switch can therefore notify CPUs which
+contest the same memory regions that their writes have failed within
+half an RTT, whereas performing the notify at memory requires a full
+RTT. In addition to the fast rejection of out of date writes, modern
+programmable switchs \textit{currently} have the ability to maintain
+memory version numbers, and to store lists of CPU's which wish to be
+notified upon a write occurring to a shared memory location via a
+multicast of the write packet. This simple mechanism notifies CPU's
+which share a remote region that their local cache is dirty within
+half of an RTT of the write being issued. 
+
+%%Struggles
+A key problem with using a switch as a memory controller is its
+available memory. Each shared region must be bookmarked with a version
+number, and a list of \textit{subscriber} CPU's must be maintained.
+Maintaining version numbers for byte addressable memory is
+unrealistic, we assume that remote memory is at least accessed in the
+form of pages (likely 4K) which reduces the number of version numbers
+which must be maintained. Maintaining notify groups is a larger
+problem as each shared region requires a list of each CPU which shares
+the region. As the number of CPU's could be large, this inflates the
+memory requirements of the switch linearly with the number of cores.
+We place the responsibility of maintaining the cores which share a
+region to the cores themselves. Prior to accessing a region a core
+must be admitted via con census. When a write occurs, the writing node
+appends the list of cores which share the recon to the packet. The
+switch parses the packet for the list and broadcasts the notify
+message to the affected cores. While this adds bandwidth overhead to
+each write it significantly reduces memory usage on the switch where
+resources are tight. 
+
+
+%%Position
+We consider our use of a programmable switch as a remote memory
+controller to be disaggregation primitive upon which other
+disaggregated systems and algorithms can be layered. We expose the
+notify API as the lowest level interface with which application can
+utilize the distributed memory controller. To show it's applicability
+to existing disaggregated systems be build both a cache coherent write
+interface, and transitional interface upon the notify API. We port
+three existing disaggregated systems Storm~\cite{storm},
+Clover~\cite{clover}, and Cell~\cite{cell} and demonstrate throughput
+improvements for write intensive workloads without degrading the
+performance of reads.
+
+\section{Timeline and material}
+
+\noindent\textbf{Hardware}
+\begin{itemize}
+    \item RDMA capable NICS in set of machines (connect-X 4's Yeti)
+    \item Connect-X6
+    \item BESS server \emph{(prototype)}
+    \item Programmable Switch barefoot Tofino
+\end{itemize}
+
+\noindent\textbf{Evaluation Systems}
+\begin{itemize}
+    \item Storm~\cite{storm}
+    \item Clover~\cite{clover}
+    \item Cell~\cite{cell}
+\end{itemize}
+
+
