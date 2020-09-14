@@ -9,10 +9,13 @@ exception of persistent storage) due to the proportionally large
 overhead of accessing remote resources. Nowhere is this disparity more
 noticeable than remote memory. Separating CPUs last level cache from
 their main memory incurs roughly a 20x overhead (approximately
-50\textit{ns} to 1\textit{us}). The cost is only acceptable for select
-asynchronous workloads, such as paging out infrequently touched
+50\textit{ns} to 1\textit{us}).  The cost is only acceptable for
+select asynchronous workloads, such as paging out infrequently touched
 data~\cite{gms}, but are entirely unrealistic when multiple CPUs
 requires consistency for frequent reads and writes to remote memory.
+Figure~\ref{fig:overview} illustrates resource placement in a
+disaggregated rack in contrast to traditional servers.
+
 Researchers and industry leaders have proposed techniques which reduce
 cost of write contention with regard to remote
 memory~\cite{clover,aguilera2019designing,cell,storm,sonuma}. A common
@@ -22,7 +25,7 @@ checksums, and memory enforced serialization have been
 proposed~\cite{aguilera2019designing}. These strategies have
 significant shortcomings in their current implementations: versioning,
 typically performed by an endhost, requires that a failed remote
-memory write (RDMA TEST AND SET)  must be propagated back to the
+memory write (\textit{RDMA-CAS})  must be propagated back to the
 writer over a network (a full RTT) prior to it reissuing a consistent
 write. Writers also only learn their version is out of date upon
 failing a write, making it a common occurrence as version information
@@ -33,9 +36,8 @@ to trigger notification messages to CPU's which wish to learn about
 remote memory which has been dirtied by a write. We consider an
 alternative centralized approach which achieves the same benefit of a
 memory centric architecture, with fundamentally lower latency, and
-currently available technology. Figure~\ref{fig:overivew} illustrates
-the difference between traditional servers resource packing and rack
-scale disaggregation.
+currently available technology. 
+
 
 %%our position
 
@@ -53,12 +55,14 @@ scale disaggregation.
       memory centric architecture~\cite{aguilera2019designing}, and
       green marks a switch centric solution similar in spirit to
       proposed middle box solutions~\cite{254120}.
+      \label{fig:overview}
       %%
       }
-      \label{fig:overview}
 \end{figure*}
 
 
+This work makes the contention that a programmable switch is an ideal
+centralized point at which to implement a remote memory controller for
 This work makes the contention that a programmable switch is an ideal
 centralized point at which to implement a remote memory controller for
 rack scale disaggregation. Prior work has suggested the need for a
@@ -77,7 +81,28 @@ maintain memory version numbers, and to store lists of CPU's which
 wish to be notified upon a write occurring to a shared memory location
 via a multicast of the write packet. This simple mechanism notifies
 CPU's which share a remote region that their local cache is dirty
-within half of an RTT of the write being issued. 
+within half of an RTT of the write being issued.
+Figure~\ref{fig:notify} illustrates how switch centric memory
+management simplifies a notification protocol. 
+rack scale disaggregation. Prior work has suggested the need for a
+distributed memory controller~\cite{254120}. But none have been built
+or proposed with existing hardware. We posit that if all remote reads
+and writes are performed within a rack using RDMA a programmable top
+of rack switch (TOR) will see every memory operation. This fact allows
+it to act as a centralized serialization point, where the last
+instance of concurrency between the reads and writes of remote CPUs is
+the egress port of the switch. The switch can therefore notify CPUs
+which contest the same memory regions that their writes have failed
+within half an RTT, whereas performing the notify at memory requires a
+full RTT. In addition to the fast rejection of out of date writes,
+modern programmable switchs \textit{currently} have the ability to
+maintain memory version numbers, and to store lists of CPU's which
+wish to be notified upon a write occurring to a shared memory location
+via a multicast of the write packet. This simple mechanism notifies
+CPU's which share a remote region that their local cache is dirty
+within half of an RTT of the write being issued.
+Figure~\ref{fig:notify} illustrates how switch centric memory
+management simplifies a notification protocol. 
 
 %%Struggles
 A key problem with using a switch as a memory controller is its
@@ -126,9 +151,10 @@ context of 3 distinct resource centric architectures.
     responsibility to the switch. Processors send notify group info
     with writes to reduce memory overhead on the switch. Switch
     centric architecture saves half an RTT over memory centric, and
-    cuts notify bandwidth in half.}
-      %%
+    cuts notify bandwidth in half.
+    %%
       \label{fig:notify}
+    }
 \end{figure*}
 
 
@@ -222,6 +248,44 @@ Storm~\cite{storm}, Clover~\cite{clover}, and Cell~\cite{cell} all
 suffer from performance collapse  on workloads with concurrent writes.
 Each is an ideal candidate for integration with a RMC to demonstrate
 its performance benefit.
+
+
+\section{Satellite Problems} 
+
+\textbf{Notify Bandwidth:}
+%%
+Notify messages are multicast, and as such a write heavy workload will
+generate a lot of notification messages.  This could easily cause a
+huge variance in performance when a workload is write heavy. Read and
+write requests should be given priority over notify messages to prevent
+head of line blocking and queuing. Second batching of notify messages
+on the switch will reduce notify bandwidth at the cost of both memory
+on the switch and the freshness of the notify information. This issue
+is one of the reasons that Mihir's work~\cite{254120} placed the
+memory controller in an out of band box.
+
+
+\textbf{Failures:}
+%%
+DDC failures are a new field of research on their
+own~\cite{amanda-hotnets}. There are avenues to explore here with a
+switch centric approach. There is a lot of work on using middle boxes
+as failure detectors, that path seems well traveled. Here we have the
+potential to use a switch to give some form of memory duplication.
+Either by duplicating messages, or by erasure coding read and write
+requests across memory banks. Erasure coding likely requires that the
+switch can perform \textit{XOR} at line rate.
+
+\textbf{Allocation:}
+%%
+This proposal assumes that all memory is set up out of band with
+processors managing their own group membership for shared regions, and
+all remote memory being part of a single shared address space. This is
+to prevent the memory cost on the switch from growing to large. Real
+applications which acquire and release memory periodically would likely
+pay large performance costs from coordinating all allocations. There
+may be space for many performance gains by using the switch as an
+remote memory allocator in addition to controller.
 
 \pagebreak
 
