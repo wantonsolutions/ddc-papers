@@ -245,3 +245,73 @@ url = {https://www.usenix.org/conference/hotcloud20/presentation/angel},
 publisher = {{USENIX} Association},
 month = jul,
 }
+
+@article{10.1145/224057.224072,
+author = {Feeley, M. J. and Morgan, W. E. and Pighin, E. P. and Karlin, A. R. and Levy, H. M. and Thekkath, C. A.},
+title = {Implementing Global Memory Management in a Workstation Cluster},
+year = {1995},
+issue_date = {Dec. 3, 1995},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {29},
+number = {5},
+issn = {0163-5980},
+url = {https://doi.org/10.1145/224057.224072},
+doi = {10.1145/224057.224072},
+journal = {SIGOPS Oper. Syst. Rev.},
+month = dec,
+pages = {201–212},
+numpages = {12}
+}
+
+  
+
+@inproceedings{gms,
+author = {Feeley, M. J. and Morgan, W. E. and Pighin, E. P. and Karlin, A. R. and Levy, H. M. and Thekkath, C. A.},
+title = {Implementing Global Memory Management in a Workstation Cluster},
+year = {1995},
+isbn = {0897917154},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/224056.224072},
+doi = {10.1145/224056.224072},
+booktitle = {Proceedings of the Fifteenth ACM Symposium on Operating Systems Principles},
+pages = {201–212},
+numpages = {12},
+location = {Copper Mountain, Colorado, USA},
+series = {SOSP '95}
+}
+
+@inproceedings {memc3,
+author = {Bin Fan and David G. Andersen and Michael Kaminsky},
+title = {MemC3: Compact and Concurrent MemCache with Dumber Caching and Smarter Hashing},
+booktitle = {10th {USENIX} Symposium on Networked Systems Design and Implementation ({NSDI} 13)},
+year = {2013},
+isbn = {978-1-931971-00-3},
+address = {Lombard, IL},
+pages = {371--384},
+url = {https://www.usenix.org/conference/nsdi13/technical-sessions/presentation/fan},
+publisher = {{USENIX} Association},
+month = apr,
+}
+
+@inproceedings{sonuma,
+author = {Novakovic, Stanko and Daglis, Alexandros and Bugnion, Edouard and Falsafi, Babak and Grot, Boris},
+title = {Scale-out NUMA},
+year = {2014},
+isbn = {9781450323055},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/2541940.2541965},
+doi = {10.1145/2541940.2541965},
+abstract = {Emerging datacenter applications operate on vast datasets that are kept in DRAM to minimize latency. The large number of servers needed to accommodate this massive memory footprint requires frequent server-to-server communication in applications such as key-value stores and graph-based applications that rely on large irregular data structures. The fine-grained nature of the accesses is a poor match to commodity networking technologies, including RDMA, which incur delays of 10-1000x over local DRAM operations. We introduce Scale-Out NUMA (soNUMA) -- an architecture, programming model, and communication protocol for low-latency, distributed in-memory processing. soNUMA layers an RDMA-inspired programming model directly on top of a NUMA memory fabric via a stateless messaging protocol. To facilitate interactions between the application, OS, and the fabric, soNUMA relies on the remote memory controller -- a new architecturally-exposed hardware block integrated into the node's local coherence hierarchy. Our results based on cycle-accurate full-system simulation show that soNUMA performs remote reads at latencies that are within 4x of local DRAM, can fully utilize the available memory bandwidth, and can issue up to 10M remote memory operations per second per core.},
+booktitle = {Proceedings of the 19th International Conference on Architectural Support for Programming Languages and Operating Systems},
+pages = {3–18},
+numpages = {16},
+keywords = {numa, system-on-chips, rmda},
+location = {Salt Lake City, Utah, USA},
+series = {ASPLOS '14}
+}
+
+  
+
