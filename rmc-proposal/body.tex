@@ -30,13 +30,15 @@ writer over a network (a full RTT) prior to it reissuing a consistent
 write. Writers also only learn their version is out of date upon
 failing a write, making it a common occurrence as version information
 ages.  Serialization at the memory is more tenable, but requires
-currently nonexistent technologies, mainly for a memory controller to
-perform arithmetic and other operations to implement versioning, and
-to trigger notification messages to CPU's which wish to learn about
-remote memory which has been dirtied by a write. We consider an
-alternative centralized approach which achieves the same benefit of a
-memory centric architecture, with fundamentally lower latency, and
-currently available technology. 
+currently nonexistent technologies. Specifically it reuqires either a
+memory controller or memory itself to perform a variety of inplace
+arthemtic operations in the absense of a CPU. These instructions are
+required to provide memory versioning for consistancy, and to trigger
+notification messages to alert remote CPU's that a memory address has
+been dirtied by another CPU's write.  We consider an alternative
+network centralized approach which achieves the same benefit of a memory
+centric architecture, with fundamentally lower latency, and currently
+available technology. 
 
 
 %%our position
@@ -62,10 +64,8 @@ currently available technology.
 
 
 This work makes the contention that a programmable switch is an ideal
-centralized point at which to implement a remote memory controller for
-This work makes the contention that a programmable switch is an ideal
-centralized point at which to implement a remote memory controller for
-rack scale disaggregation. Prior work has suggested the need for a
+centralized point at which to implement a remote memory controller.
+for rack scale disaggregation. Prior work has suggested the need for a
 distributed memory controller~\cite{254120}. But none have been built
 or proposed with existing hardware. We posit that if all remote reads
 and writes are performed within a rack using RDMA a programmable top
@@ -83,26 +83,26 @@ via a multicast of the write packet. This simple mechanism notifies
 CPU's which share a remote region that their local cache is dirty
 within half of an RTT of the write being issued.
 Figure~\ref{fig:notify} illustrates how switch centric memory
-management simplifies a notification protocol. 
-rack scale disaggregation. Prior work has suggested the need for a
-distributed memory controller~\cite{254120}. But none have been built
-or proposed with existing hardware. We posit that if all remote reads
-and writes are performed within a rack using RDMA a programmable top
-of rack switch (TOR) will see every memory operation. This fact allows
-it to act as a centralized serialization point, where the last
-instance of concurrency between the reads and writes of remote CPUs is
-the egress port of the switch. The switch can therefore notify CPUs
-which contest the same memory regions that their writes have failed
-within half an RTT, whereas performing the notify at memory requires a
-full RTT. In addition to the fast rejection of out of date writes,
-modern programmable switchs \textit{currently} have the ability to
-maintain memory version numbers, and to store lists of CPU's which
-wish to be notified upon a write occurring to a shared memory location
-via a multicast of the write packet. This simple mechanism notifies
-CPU's which share a remote region that their local cache is dirty
-within half of an RTT of the write being issued.
-Figure~\ref{fig:notify} illustrates how switch centric memory
-management simplifies a notification protocol. 
+management simplifies a notification protocol.  rack scale
+disaggregation. Prior work has suggested the need for a distributed
+memory controller~\cite{254120}. But none have been built or proposed
+with existing hardware. We posit that if all remote reads and writes
+are performed within a rack using RDMA a programmable top of rack
+switch (TOR) will see every memory operation. This fact allows it to
+act as a centralized serialization point, where the last instance of
+concurrency between the reads and writes of remote CPUs is the egress
+port of the switch. The switch can therefore notify CPUs which contest
+the same memory regions that their writes have failed within half an
+RTT, whereas performing the notify at memory requires a full RTT. In
+addition to the fast rejection of out of date writes, modern
+programmable switchs \textit{currently} have the ability to maintain
+memory version numbers, and to store lists of CPU's which wish to be
+notified upon a write occurring to a shared memory location via a
+multicast of the write packet. This simple mechanism notifies CPU's
+which share a remote region that their local cache is dirty within
+half of an RTT of the write being issued.  Figure~\ref{fig:notify}
+illustrates how switch centric memory management simplifies a
+notification protocol. 
 
 %%Struggles
 A key problem with using a switch as a memory controller is its
@@ -134,7 +134,7 @@ context of 3 distinct resource centric architectures.
 
 \begin{figure*}
       \centering
-      \includegraphics[width=0.95\textwidth]{fig/notify.png}
+      \includegraphics[width=0.95\textwidth]{fig/optical-extension.png}
       %%
       \caption{Illustration of a successful write across different
       resource centric architectures with the location of memory
@@ -151,7 +151,9 @@ context of 3 distinct resource centric architectures.
     responsibility to the switch. Processors send notify group info
     with writes to reduce memory overhead on the switch. Switch
     centric architecture saves half an RTT over memory centric, and
-    cuts notify bandwidth in half.
+    cuts notify bandwidth in half. In the presence of an optical
+    network, with no centralized switching chip, pNICs can provide the
+    same functionality for a single server memory bank.
     %%
       \label{fig:notify}
     }
@@ -171,6 +173,7 @@ notify API. We port three existing disaggregated systems
 Storm~\cite{storm}, Clover~\cite{clover}, and Cell~\cite{cell} and
 demonstrate throughput improvements for write intensive workloads
 without degrading the performance of reads.
+
 
 \section{Software and Hardware}
 
@@ -289,49 +292,49 @@ remote memory allocator in addition to controller.
 
 \textbf{Switch Memory Size}
 One problem with using a switch as a memory controller is that it has
-limited memory. The number of objects which can be stored in the
-switch is therefore limited to a few MB, in the case where the objects
-are keys (64B) this problem becomes more pronounced. It may be
-avantageous to use the serialization on the switch not to capture all
-of the program state but only to capture conflicts on large objects.
-An example would be a large data structure which has many discrete
-objects, upone which a variety of operations can be invoked. Keeping
-track of all such metadata on a switch might be too much.
-
-I had an idea out on a walk today (Nov 26 2020) What if when a
-conflict on an object exists i.e. a process attempts to update an
-object for which it has out of date information, the request is
-forwarded to a serialization core. In general the flow of operatious
-would be thus: many processes read and write to shared objecets in
-remote memory. When their updates are serialized due to the space of
-the operations i.e no concurrent conflicts, reads and writes continue
-unrestricted. This assumes that there is a local cache of data on each
-node which is periodically updated. 
-
-In the case where a conflict occurs, in this case lets assume its a
-request to an object where the requesting process has an out of date
-version number. The switch flags the request as out of date, and
-forwards the request to a known serialization core. The seralization
-core is chosen deterministically by the hash of the objects id or
-location in memory. This core is then responsible for the completion
-of the request. 
-
-What advantanges and disadvangates does this approach have? The first
-advantage is that in the worst case the request takes 1.5 RTT. The
-first half of the round trip is to the serialization core after the
-request fails, the full rtt is from the serialzation core, to memory,
-and then the response back to the requester. 
-
-The downside is that this does amplify bandwidth, and it also
-increases CPU utilization on the seralization core. In aggregate
-though I belive that due to requests not needing to be reissued in
-parallel with the possiblity of multiple contentions, this would
-reduce the overall CPU and bandwidth of the system which also
-increasing throughput. 
-
-The idea is in some ways similar to chain replication, or distributed
-concensus, with the exception that all leaders are chosen at the
-beginning, and it allows for full throughput.
+%%limited memory. The number of objects which can be stored in the
+%%switch is therefore limited to a few MB, in the case where the objects
+%%are keys (64B) this problem becomes more pronounced. It may be
+%%avantageous to use the serialization on the switch not to capture all
+%%of the program state but only to capture conflicts on large objects.
+%%An example would be a large data structure which has many discrete
+%%objects, upone which a variety of operations can be invoked. Keeping
+%%track of all such metadata on a switch might be too much.
+%%
+%%I had an idea out on a walk today (Nov 26 2020) What if when a
+%%conflict on an object exists i.e. a process attempts to update an
+%%object for which it has out of date information, the request is
+%%forwarded to a serialization core. In general the flow of operatious
+%%would be thus: many processes read and write to shared objecets in
+%%remote memory. When their updates are serialized due to the space of
+%%the operations i.e no concurrent conflicts, reads and writes continue
+%%unrestricted. This assumes that there is a local cache of data on each
+%%node which is periodically updated. 
+%%
+%%In the case where a conflict occurs, in this case lets assume its a
+%%request to an object where the requesting process has an out of date
+%%version number. The switch flags the request as out of date, and
+%%forwards the request to a known serialization core. The seralization
+%%core is chosen deterministically by the hash of the objects id or
+%%location in memory. This core is then responsible for the completion
+%%of the request. 
+%%
+%%What advantanges and disadvangates does this approach have? The first
+%%advantage is that in the worst case the request takes 1.5 RTT. The
+%%first half of the round trip is to the serialization core after the
+%%request fails, the full rtt is from the serialzation core, to memory,
+%%and then the response back to the requester. 
+%%
+%%The downside is that this does amplify bandwidth, and it also
+%%increases CPU utilization on the seralization core. In aggregate
+%%though I belive that due to requests not needing to be reissued in
+%%parallel with the possiblity of multiple contentions, this would
+%%reduce the overall CPU and bandwidth of the system which also
+%%increasing throughput. 
+%%
+%%The idea is in some ways similar to chain replication, or distributed
+%%concensus, with the exception that all leaders are chosen at the
+%%beginning, and it allows for full throughput.
 
 
 \pagebreak
