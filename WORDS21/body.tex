@@ -333,6 +333,34 @@ RDMA writes.
     \label{fig:conflicts}
 \end{figure}
 
+\subsection{Memory Consumption}
+
+Resources on networking hardware is scarce. High end SoC SmartNIC's
+have just a few GB of RAM, and programmable switches have only MB's of
+SRAM. Moreover the use of this memory is not free. Using memory for
+any purpose other than buffer packets has a direct performance cost as
+the number of packets which can be successfully buffered drops. Our
+design takes the preciousness of memory in network into account. The
+metadata we cache in network in the minimal nessisary to resolve write
+conflicts. While Clover's meta data consists of many MB of garbage
+collection and version data we only cache the virtual address of the
+last write per key. In addition we track the last key written per
+client thread. Clients are not explicitly known to our middlebox and
+are identified at runtime by their QP. Tracking clients in this way is
+nessisary to detect write conflicts in clover. This overhead could be
+eliminated by explicitly adding key information to CNS requests.
+
+Figure~\ref{fig:memory} Shows the memory overhead as a function of
+keys. Note that 100K keys can be supported using 7\% of the available
+memory on a Barefoot Tophino programmable switch (22MB).
+
+\begin{figure}
+    \includegraphics[width=0.45\textwidth]{fig/memory.pdf}
+    \caption{Cost of caching metadata in network vs keyspace size.}
+    \label{fig:memory}
+\end{figure}
+
+
 
 
 
