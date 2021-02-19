@@ -154,9 +154,17 @@ conditions happen frequently~\ref{fig:conflicts}, which leads to a
 sharp decrease in overall throughput.
 
 \begin{figure}
+    \includegraphics[width=0.45\textwidth]{fig/clover_tput.pdf}
+    \caption{Clover throughput degredation as a function of write
+    workload\todo{redo on my setup}}
+    \label{fig:clover_tput}
+\end{figure}
+
+\begin{figure}
     \includegraphics[width=0.45\textwidth]{fig/write_conflicts.pdf}
     \caption{Clover write conflicts grow with the number of clients
-    (50\% write zipf 0.99 distribution)}
+    (50\% write zipf 0.99 distribution)\todo{redo with 64 cores and
+    writes only}}
     \label{fig:conflicts}
 \end{figure}
 
@@ -371,6 +379,9 @@ in the future to support a huge number of variable keys.}
 \todo{This experiment should be fast and easy to run but still needs
 to be done}
 
+\section{Conclusion}
+
+\todo{rdma write contention}
 
 
 
