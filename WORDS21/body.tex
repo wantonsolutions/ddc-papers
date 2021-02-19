@@ -10,20 +10,81 @@ noticeable than remote memory. Separating CPUs last level cache from
 their main memory incurs roughly a 20x overhead (approximately
 50\textit{ns} to 1\textit{us}).  The cost is only acceptable for
 select asynchronous workloads, such as paging out infrequently touched
-data~\cite{gms}, but are entirely unrealistic when multiple CPUs
+data~\cite{infiniswap,legoos,leap}, but are entirely unrealistic when multiple CPUs
 requires consistency for frequent reads and writes to remote memory.
 Figure~\ref{fig:overview} illustrates resource placement in a
 disaggregated rack in contrast to traditional servers.
 
-Researchers and industry leaders have proposed techniques which reduce
-cost of write contention with regard to remote
-memory~\cite{aguilera2019designing,cell,sonuma,storm,clover}. A common
-goal among them is to provide $O(1)$ read and write costs in the
-common case. To achieve this strategy such as memory versioning,
-checksums, and memory enforced serialization have been
-proposed~\cite{aguilera2019designing}.
+A large body of work has investigated how to design high performance
+RDMA key value stores, and RPC
+frameworks~\cite{cell,sonuma,storm,farm,herd,erpc}. However, they
+require the use of a CPU, coresident with memory, to coordinate RDMA
+access and keep their remote data structures consistent. In the case
+of pure resource disaggregation no such remote exists. This
+architectural paradigm requires new techniques and algorithms to achieve
+similar functionality. 
+
+Some research has been done into the requirements for resource
+disaggregation, specifically in network, and memory
+requirement~\cite{requirements, aguilera2019designing, disandapp,
+amanda-hotnets}, however few have been tested practically or require
+non-existent hardware primitives. Those that have been constructed are
+first attempts at exposing remote memory to clients without the
+expectation of remote CPUs to coordinate RDMA operations and are
+subject to many limitations~\cite{reigons, clover}. Both Remote
+Regions~\cite{reigons} and Clover~\cite{clover} are designed to use
+remote memory with a read heavy workload on any shared resources.
+Their reason for avoiding writes is fundamental: concurrent consistent
+writes to remote memory are expensive. Lock acquisition and revocation
+requires multiple round trips devastating performance. Even with an
+intelligent concurrent algorithm to opportunistically avoid lock
+acquisition clovers throughput severely degraded under write heavy
+workloads. Figure~\ref{fig:clover_tput} shows clovers reported
+throughput drop when subjected to a 50\% write workload.
+
+\begin{figure}
+    \includegraphics[width=0.45\textwidth]{fig/clover_tput.pdf}
+    \caption{Clover throughput degradation as a function of write
+    workload\todo{redo on my setup for consistent ops/s}}
+    \label{fig:clover_tput}
+\end{figure}
 
 
+%Researchers and industry leaders have proposed techniques which reduce
+%cost of write contention with regard to remote
+%memory~\cite{aguilera2019designing,cell,sonuma,storm,clover}. A common
+%goal among them is to provide $O(1)$ read and write costs in the
+%common case. To achieve this strategy such as memory versioning,
+%checksums, and memory enforced serialization have been
+%proposed~\cite{aguilera2019designing}.
+
+\todo{Transition into this with something about rack scale
+architecture}
+This work makes the contention that a programmable switch is an ideal
+centralized point at which to implement a remote memory controller.
+for rack scale disaggregation. Prior work has suggested the need for
+a distributed memory controller~\cite{disandapp}. But none have been
+built or proposed with existing hardware. We posit that if all remote
+reads and writes are performed within a rack using RDMA a programmable
+top of rack switch (TOR) will see every memory operation. This fact
+allows it to act as a centralized serialization point, where the last
+instance of concurrency between the reads and writes of remote CPUs is
+the egress port of the switch. Figure~\ref{fig:overview} illustrates
+the organization of a disaggregated rack, and highlights different
+points of coordination for reads and writes.
+
+%The switch can therefore notify CPUs
+%which contest the same memory regions that their writes have failed
+%within half an RTT, whereas performing the notify at memory requires a
+%full RTT. In addition to the fast rejection of out of date writes,
+%modern programmable switchs \textit{currently} have the ability to
+%maintain memory version numbers, and to store lists of CPU's which
+%wish to be notified upon a write occurring to a shared memory location
+%via a multicast of the write packet. This simple mechanism notifies
+%CPU's which share a remote region that their local cache is dirty
+%within half of an RTT of the write being issued.
+%Figure~\ref{fig:notify} illustrates how switch centric memory
+%management simplifies a notification protocol. 
 
 
 %%our position
@@ -32,13 +93,15 @@ proposed~\cite{aguilera2019designing}.
       \centering
       \includegraphics[width=0.95\textwidth]{fig/overview.png}
       %%
-      \caption{Anatomy of a disaggregated rack. On the left a
+      \caption{~\todo{redo diagram to remove memory centric
+      organization (it's a pipe dream)}
+      Anatomy of a disaggregated rack. On the left a
       traditional rack with processors colocated with their memory
       interconnected by a switch. On the right is a high density
       disaggregated rack with processors separated from their memory
       by a top of rack switch. Stars mark locations for memory access
       serialization. Red denotes traditional processor centric
-      serialization~\cite{ memc3, cell, sonuma, storm, clover}, blue marks a
+      serialization~\cite{memc3, cell, sonuma, storm, clover}, blue marks a
       memory centric architecture~\cite{aguilera2019designing}, and
       green marks a switch centric solution similar in spirit to
       proposed middle box solutions~\cite{254120}.
@@ -48,55 +111,36 @@ proposed~\cite{aguilera2019designing}.
 \end{figure*}
 
 
-This work makes the contention that a programmable switch is an ideal
-centralized point at which to implement a remote memory controller.
-for rack scale disaggregation.  Prior work has suggested the need for
-a distributed memory controller~\cite{254120}. But none have been
-built or proposed with existing hardware. We posit that if all remote
-reads and writes are performed within a rack using RDMA a programmable
-top of rack switch (TOR) will see every memory operation. This fact
-allows it to act as a centralized serialization point, where the last
-instance of concurrency between the reads and writes of remote CPUs is
-the egress port of the switch. The switch can therefore notify CPUs
-which contest the same memory regions that their writes have failed
-within half an RTT, whereas performing the notify at memory requires a
-full RTT. In addition to the fast rejection of out of date writes,
-modern programmable switchs \textit{currently} have the ability to
-maintain memory version numbers, and to store lists of CPU's which
-wish to be notified upon a write occurring to a shared memory location
-via a multicast of the write packet. This simple mechanism notifies
-CPU's which share a remote region that their local cache is dirty
-within half of an RTT of the write being issued.
-Figure~\ref{fig:notify} illustrates how switch centric memory
-management simplifies a notification protocol. 
 
 %%Struggles
 A key problem with using a switch as a memory controller is its
-available memory. For context a Barefoot Tofino has 50-100MB of
+available memory. For context a Barefoot Tofino has \todo{22MB} of
 programmable SRAM. By default this SRAM is used as buffers.
 Reallocating buffer memory for storage trades off the usability of a
 switch as a packet forwarding device. Therefore any use SRAM for
-additional application must be carefully considered. Each shared
-region must be bookmarked with a version number, and a list of
-\textit{subscriber} CPU's must be maintained.  Maintaining version
-numbers for byte addressable memory is unrealistic as the number of
-versions would grow with the size of memory, and because a remote read
-for a single byte of data is largely impractical. We assume that
-remote memory is at least accessed in the form of pages or blocks
-(likely 4K) which reduces the number of version numbers which must be
-maintained.  Maintaining notify groups is a larger problem as each
-shared region requires a list of CPUs with read/write access. As the
-number of CPU's grows so too does the per block memory requirement of
-the switch.  We place the responsibility of maintaining the read/write
-access list to the cores themselves.  Prior to accessing a region a
-core must be admitted via con census.  When a write occurs, the
-writing node appends the list of cores which share the recon to the
-packet. The switch parses the packet for the list and broadcasts the
-notify message to the affected cores. While this adds bandwidth
-overhead to each write it significantly reduces memory usage on the
-switch where resources are tight. Figure~\ref{fig:notify} illustrates
-the placement of memory state, alongside a notify algorithm in the
-context of 3 distinct resource centric architectures.
+additional application must be carefully considered. 
+
+
+%Each shared region must be bookmarked with a version number, and a
+%list of \textit{subscriber} CPU's must be maintained.  Maintaining
+%version numbers for byte addressable memory is unrealistic as the
+%number of versions would grow with the size of memory, and because a
+%remote read for a single byte of data is largely impractical. We
+%assume that remote memory is at least accessed in the form of pages or
+%blocks (likely 4K) which reduces the number of version numbers which
+%must be maintained.  Maintaining notify groups is a larger problem as
+%each shared region requires a list of CPUs with read/write access. As
+%the number of CPU's grows so too does the per block memory requirement
+%of the switch.  We place the responsibility of maintaining the
+%read/write access list to the cores themselves.  Prior to accessing a
+%region a core must be admitted via con census.  When a write occurs,
+%the writing node appends the list of cores which share the recon to
+%the packet. The switch parses the packet for the list and broadcasts
+%the notify message to the affected cores. While this adds bandwidth
+%overhead to each write it significantly reduces memory usage on the
+%switch where resources are tight. Figure~\ref{fig:notify} illustrates
+%the placement of memory state, alongside a notify algorithm in the
+%context of 3 distinct resource centric architectures.
 
 %%Position
 We consider our use of a programmable switch as a remote memory
@@ -152,13 +196,6 @@ retry it's write after searching through clovers remote data structure
 for the next write location. On write heavy workloads these race
 conditions happen frequently~\ref{fig:conflicts}, which leads to a
 sharp decrease in overall throughput.
-
-\begin{figure}
-    \includegraphics[width=0.45\textwidth]{fig/clover_tput.pdf}
-    \caption{Clover throughput degredation as a function of write
-    workload\todo{redo on my setup}}
-    \label{fig:clover_tput}
-\end{figure}
 
 \begin{figure}
     \includegraphics[width=0.45\textwidth]{fig/write_conflicts.pdf}
@@ -381,7 +418,7 @@ to be done}
 
 \section{Conclusion}
 
-\todo{rdma write contention}
+\todo{RDMA write contention}
 
 
 
