@@ -177,23 +177,23 @@ memory overhead further}
 %without degrading the performance of reads.
 
 
-\section{Prototype}
+\section{Clover}
 %% WORDS
-Prior remote memory systems require the use of CPU's on remote
-machines to coordinate RDMA~\cite{cell,sonuma,storm,erpc,farm}. Remote
-CPU's provide RDMA serialization and simplify consistency for
-distributed data structures. Disaggregated memory poses a new problem:
-\textit{How can remote memory be coordinated without a remote CPU?}.
+%Prior remote memory systems require the use of CPU's on remote
+%machines to coordinate RDMA~\cite{cell,sonuma,storm,erpc,farm}. Remote
+%CPU's provide RDMA serialization and simplify consistency for
+%distributed data structures. Disaggregated memory poses a new problem:
+%\textit{How can remote memory be coordinated without a remote CPU?}.
 
 %%
-\todo{Separate the transparent from the non transparent world}
-\todo{Cite the job throughput paper}
-Clover is the first attempt to have fast consistent remote memory
-without any datapath coordination via remote CPU~\cite{clover}. Other
-recent approaches such as Remote Regions~\cite{reigons} discount
-remote consistency, and HP's the machine requires computation in
-remote memory, which relies on non existent
-hardware~\cite{aguilera2019designing}.
+%\todo{Separate the transparent from the non transparent world}
+%\todo{Cite the job throughput paper}
+%Clover is the first attempt to have fast consistent remote memory
+%without any datapath coordination via remote CPU~\cite{clover}. Other
+%recent approaches such as Remote Regions~\cite{reigons} discount
+%remote consistency, and HP's the machine requires computation in
+%remote memory, which relies on non existent
+%hardware~\cite{aguilera2019designing}.
 
 %%
 Clover proposes that disaggregated data structures separate their
@@ -235,43 +235,33 @@ contention is low, providing average case O(1) read/write and is used
 in many high throughput concurrent data structures.
 
 \todo{add a description of the reconciliation process}
-
 %%
 We propose a middle ground between prior centralized approaches, and
 clover's out of datapath metadata separation. Our insight is that by
 caching small amount of a disaggregated data structures metadata in a
 centralized location, write conflicts can be resolved in the data path
 allowing for conflict free full read and write throughput of
-disaggregated data structures.
-
-%%
-Using Clover as a platform to prove our concept we design a
-lightweight middle box algorithm which intercepts clovers RDMA read
-and write request, caches a small amount (64 byte per key) amount of
-structural meta data and resolves write conflicts within the data
-path. 
-
-%%
-Our algorithm is implemented in DPDK, but is designed to have
-extremely low space and computational overhead making it ideals for
-network devices such as programmable switches and NICs.
-
-
-
-\pagebreak
+disaggregated data structures.  Using Clover as a platform to prove
+our concept we design a lightweight middle box algorithm which
+intercepts clovers RDMA read and write request, caches a small amount
+(64 byte per key) amount of structural meta data and resolves write
+conflicts within the data path.  Our algorithm is implemented in DPDK,
+but is designed to have extremely low space and computational overhead
+making it ideals for network devices such as programmable switches and
+NICs.
 
 
 %% The high level pitch about remote memory.
-Far memory projects typically have a remote CPU which is used to
-coordinate access to remote resources (cite all object systems). In a
-disaggregated system there is no remote CPU, therefore the coordination
-of reads and writes to remote locations must be done locally. For
-performance local caches of remote resources can be used to organize
-access to remote resources. For data structures which require
-consistency this creates a problem as stale caches can lead to data
-structure corruption.
+%Far memory projects typically have a remote CPU which is used to
+%coordinate access to remote resources (cite all object systems). In a
+%disaggregated system there is no remote CPU, therefore the coordination
+%of reads and writes to remote locations must be done locally. For
+%performance local caches of remote resources can be used to organize
+%access to remote resources. For data structures which require
+%consistency this creates a problem as stale caches can lead to data
+%structure corruption.
 
-\section{What we actually built}
+\section{Our System}
 
 Our system caches metadata for remote data structure on centralized
 networking devices. Our prototype is implemented in DPDK, however our
