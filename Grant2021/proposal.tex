@@ -1,0 +1,123 @@
+\section{Motivations}
+
+
+The case for resource disaggregation is relatively straightforward. Scalability,
+energy savings, density and dynamic composition of systems are the primary
+benefits. Given a disaggregated model it’s possible to compose a system which
+can meet arbitrary user requirements. Perhaps the easiest to understand is that
+a server can be provisioned with more ram than will fit into a single box. From
+a data center operator perspective one of the biggest advantages is that you
+don't need to actually upgrade a machine in order to change the provisioning
+that are being offered. Section 2.1 of \textit{Can Far Memory Improve Job
+Throughput} explains this point in detail~\cite{jobthroughput}. 
+
+Another bleeding edge but relevant advantage towards disaggregated designs is
+that they take into account current trends hardware accelerators. Traditional
+designs would have accelerators either be co-located in a sever provisioned
+with memory and compute, with the resources accessed via some RPC API. In the
+disaggregation model accelerators can be placed in racks specially designed for
+them. An example of this being an advantage is that a naive machine learning
+practitioner does not need to learn how to use something like TensorFlow to make
+use of a cluster. The GPU's can all be accessed as if local via usual single
+machine libraries. This assumes virtual memory mapping. The high level take away
+is that as computation becomes more heterogeneous across accelerators
+disaggregated designs provide a paradigm that allows them to be interfaced with
+at mass scale using traditional OS primitives.
+
+Many people have argued that disaggregation could provide significant energy
+savings. At a high level, resources can be powered down when they are not being
+used. I'm not sure how true this is, but Zombie land at least makes the
+case~\cite{zombieland}.
+
+\section{Problems}
+
+Resource disaggregation essentially redesigns how a computer is composed, and
+therefore it is fraught with new problems to solve. Mainly in terms of
+performance, failures, and density.
+
+\textbf{Performance}
+
+Memory is the biggest performance concern, and the one which requires the most
+innovation. The standard measure of performance degradation is 20x. Memory is
+roughly 50ns and remote memory is 1us. This are numbers actually tilted in the
+favor of remote memory, few projects have gone sub 1us and it's hard to call
+them disaggregated. Given that the cost of going remote is high there are a few
+areas where the research could help improve performance.
+
+Transparent far memory systems, i.e using remote memory for paging can definitely
+improve their prefecting algorithms. The vast majority of prefecting analysis
+has been done to optimize for spinning disks, and do things like attempt to
+prefetch large contiguous chunks of memory. Leap~\cite{leap} demonstrates that
+just by looking at stride patterns they can get a serious performance advantage.
+Projects like ASC~\cite{asc} have demonstrated that address prediction can be
+done with high accuracy, techniques that use additional, potentially offline
+computation to predict good prefetching might be justified when the cost is so
+high. Prefeched pages also do network transit and can generate extreme traffic
+demands. Congestion control and priority will be required here. A quick example
+is that the page which a processor is waiting for to execute the next
+instruction should be given high priority, while predicted prefetched pages
+should be given low priority. Lastly the size of the accessed memory and how it
+is accessed is an open question. VM ware has suggested that remote memory be
+accessed at the cache line granularity not at the page granularity. The same
+concerns apply, but also concerns around small packets.
+
+
+
+\textbf{Failures}
+
+Resource disaggregation introduces new classes of failures. The most common
+example is how to deal with a portion of an address space disappearing.
+Solutions include adding redundancy for memory such as duplicating, or using
+erasure coding. Another model suggests exposing failures as exceptions to
+applications which they can handle, similar but not equal to a page fault. Other
+suggest different computational models such as explicit checkpointing. 
+
+No such models have been built or simulated to my knowledge. There are a variety
+of trade offs to any approach here and many projects could be pitched around how
+to structure guarantees, API, and programming modes for cloud native
+disaggregated computing. The most promising proposals are arguably coming from
+the serverless community which suggest making all computation compartmentalized.
+Disaggregation and the application~\cite{ddcaps} has the best argument for
+traditional signaling.
+
+\textbf{Density}
+
+There are serious questions surrounding how to interact with new degrees of
+density. For instance, where does the kernel live, and how is it interacted
+with? Normally there is one kernel per box, but now there might be one kernel
+per rack. This could save a lot of memory overall. It raises interesting OS
+design questions about what a context switch would look like i.e memory
+protection might be more easily implemented in network and hardware rings of
+protection might not be nessisary. This also requires a redesign of how
+scheduling and interrupts would be handled.
+
+Questions around loss are also relevant. For instance, the scale of losses given
+proposed disaggregation 
+
+
+\textbf{Data Structures} Data structures for remote memory are a key requirement
+for disaggregated systems. The motivation here is that normal data structures
+tank in performance not due to their algorithm complexity but their poor
+consideration of the system. For instance a linked list in remote memory suffers
+from pointer chasing penalties. Every access to each element requires a round
+trip to resolve an address, this destroys performance. It shows it's head most
+clearly when resources are contested.
+
+Similar to NUMA optimized data structures there is going to be an obvious
+benifit to far memory data structures by partitioning data and designing them to
+be associative and commutative whenever possible. Remote memory is different than
+NUMA in one main aspect -- Data transits the network, and the network has small
+amounts of compute. Far memory data structures can take advantage of in network
+compute for serious gains. See my work for reducing contention using a switch.
+
+The considerations here are similar to designing cache aware data structures,
+but inverted because the network inverts the memory hierarchy. i.e between L3 and
+main there is a unified L2 (NIC/FPGA memory) and L1 switch memory. It's a memory
+diamond rather than pyramid, rather than designing for cache locality the data
+structures need to be designed for operation aggregation on small amounts of
+data. For instance any operations that can be performed by a switch, i.e
+updating the next write address are good, because they avoid the endhosts from
+communicating and provide full throughput. Put concisely data structures with
+structural invariant which are assertable using a fraction of the data
+structures size are desirable. There is very little research here.
+
