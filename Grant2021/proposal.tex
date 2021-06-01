@@ -45,7 +45,7 @@ them disaggregated. Given that the cost of going remote is high there are a few
 areas where the research could help improve performance.
 
 Transparent far memory systems, i.e using remote memory for paging can definitely
-improve their prefecting algorithms. The vast majority of prefecting analysis
+improve their prefetching algorithms. The vast majority of prefetching analysis
 has been done to optimize for spinning disks, and do things like attempt to
 prefetch large contiguous chunks of memory. Leap~\cite{leap} demonstrates that
 just by looking at stride patterns they can get a serious performance advantage.
@@ -104,7 +104,7 @@ trip to resolve an address, this destroys performance. It shows it's head most
 clearly when resources are contested.
 
 Similar to NUMA optimized data structures there is going to be an obvious
-benifit to far memory data structures by partitioning data and designing them to
+benefit to far memory data structures by partitioning data and designing them to
 be associative and commutative whenever possible. Remote memory is different than
 NUMA in one main aspect -- Data transits the network, and the network has small
 amounts of compute. Far memory data structures can take advantage of in network
