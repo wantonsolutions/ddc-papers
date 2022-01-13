@@ -1,0 +1,107 @@
+%\begin{abstract}
+
+%\end{abstract}
+
+%\section{keywords}
+%\begin{itemize}
+%    \item Compare and swap
+%    \item Non Blocking Data Structures
+%    \item Asynchronous Data Structures
+%    \item far memory data structures
+%    \item optimisitc concurrency
+%
+%\section{intro}
+
+
+%currently just a jotting area for ideas.
+\section{Techniques}
+
+The following are some far/disaggregated memory algorithm design techniques and
+common issues.
+
+
+\textbf{Steering} centralized in network compute can be used to steer and modify
+requests when data races and conflicts occur. The downside is that this takes an
+extra bit of in network processing, but it gets a big speed up. In order for a
+middlebox to make the correct steering decision it requires all of the
+information necessary to preserve the data invariants of the structure it is
+steering into. This limitation demands that the data structure itself be well
+conditioned for this property, and be able to deal with potential variance in
+its structure.
+
+\textbf{Read Size} One tradeoff that can be made to accelerate writes is to make
+them sloppy and push the complexity to the read. This adds a bit of computation
+as the reader must compose the information they require from the unsorted read.
+As a simple example imagine a multi processes sorted list. Each insert is
+expensive if it must be globally coordinated. However it's cheap if each process
+just maintains it's own locally sorted list. A call to \textit{max} which
+returns the max globally could peek at the heads of each list, and then locally
+compute the max from those. For $n$ processes this inflates the cost of the read
+by $n$ in bandwidth however it removes the need for coordination. In general I
+believe that this holds for all algorithms and data structures. Consider that any
+structure can be represented by the set of operations performed on it. If each
+write operation is append to a log in memory, with a globally orderable
+timestamp then an arbitrary number of processes can have unorganized and full
+write throughput, and push the composition of the data structure to each read,
+where the entire log of each process is read, and executed locally in it's
+entirety.
+
+\textbf{Write amplification mitigation} Remote structures sometimes require write
+amplification. Consider a set of entries each guarded with a checksum for
+integrity. An update to any entry requires the recomputation of the checksum,
+and the rewrite of the continuous addresses in order to make the write in a
+single round trip. Depending on the bucket size of the entries the write can
+grow arbitrarily. Another technique is to make each entry have it's own checksum
+for it's integrity, and to only update the bucket checksum when all items become
+static.
+
+\textbf{Precomputation} Some optimization are easy with precompuation. Consider
+Yizhous one level page table. Normally a walk would be required, however they
+access the page with an O(1) hash. To do so they must avoid collisions. They
+push the complexity to malloc which tries continuously to make an virtual address
+allocation until it finds one without a hash collision.
+
+\textbf{Optimistic Concurrency} Round trip times are extremely expensive.
+Traditional locking requires a round trip for acquisition and for release making
+the common case slow. Most far memory algorithms will benefit from optimistic
+concurrency with the exception of write heavy ones which must access shared
+data. I.e contentious algorithms. RDMA provides verbs such as CAS and FAA for
+implementing optimistic concurrency.
+
+\textbf{Caching} A variety of caching techniques reduce latency for far memory
+application. Caching allows for a two fold benefit. The first is that the
+distance between requests and the required data is less. Caching on a switch
+removes the last hop in a rack, and on a NIC removes a PCIe round trip. The
+dangers with caching is that the important caching data must be determined
+somehow. Traditional caching techniques can lead to massive bandwidth inflation.
+The second advantage of caching in network is centralization which can reduce
+the communication between hosts.
+
+
+\section{notes}
+
+The papers~\cite{one-side-hash} and ~\cite{write-optimized-hash} are almost
+identical. It's the same author, I'm just noting that the change between NUMA
+and Far memory could use this as a case study.
+
+
+Simialr to the concept of a bandwidth delay product, in terms of remote memory
+there is a latency operation product which is expanded by the time it takes for
+an operation to complete. For example O(1) will have less active operations than
+an O(2) data struture simply by the nature of the operations. Anything requiring
+a read and a write to complete will take longer to complete due to the round
+trip.
+
+In the few concurrent papers I read there is the concept of performing a marking
+on a data structure. For example this concurrent binary
+tree~\cite{fast-concurrent-bin} marks edges to ensure that they do not get
+modified in a way that breaks the tree. This marking is similar to placing a
+lock. I think that similar to marking, there should be a way to check a data
+structures in flight operations, if all the operations are known ahead of time,
+and then serialize the requests based on that.
+
+
+
+%\section{review}  
+
+%\section{conclusion}
