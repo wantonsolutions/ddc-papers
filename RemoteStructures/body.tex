@@ -11,10 +11,89 @@
 %    \item optimisitc concurrency
 %
 %\section{intro}
+\section{Forward Direction}
+
+Alex has suggested that I look to the history of these algorithms and then use
+that as a mechanism to discuss what has changed. This is more difficult than
+just reading about dissagregated algorithms.
+
+
+\section{History}
+
+Disaggregated algorithms have the trait that they are one sided, and computed
+over a network. All shared memory algorithms are one sided, but most of them
+don't scale, however their techniques for dealing with mass concurrency are
+relevant. Therefore the starting place for the history of this exam is
+concurrency algorithms. NUMA systems take care to address the asymmatry of
+memory accesses and divide operations into local and remote. This asymmetry
+exists in the disaggregated context
+
+\subsection{key value stores} As such many prior techniques for key value stores
+which take the network into account, such as RDMA optimizations, are still
+applicable in the disaggregated context. Where the comparison between prior key
+value stores and disaggregation ends is when two sided approaches like RPC or
+two sided RDMA are utilized, especially when they perform the serialization. For
+example, a common paradigms is to have the reads be performed async using one
+sided operations, while the writes are serialized by a two sided operation. This
+allows a CPU to perform the locking and execute multi step critical sections,
+such as pointer chasing, with low latency.
+
+\textbf{Pilaf~\cite{pilaf}} uses just such a mixture of one and two sided RDMA
+operations. The key insight is that if a data structure is architects carefully,
+the reads can be performed fully asynchronously by one sided RDMA reads which
+dramatically reduces server side CPU usage and request latency. This technique
+is common in concurrent algorithms, and is readily applicable here. One new
+technique for remote memory structures which pilaf introduces is self verifying
+data entries. These entries prevent data corruption during races. Incomplete
+writes read by RDMA operations can be invalidated by the client. This is one
+example of pushing the complexity of a data structure to the client side. Pilaf
+does not extend to the disaggregated context directly as writes are handled by a
+server side cpu which serializes requests, and processes CRC's. Their rational
+is that client side atomic operations are slow, and brittle. 
+
+\textbf{Farm~\cite{farm}}, similar to pilaf allows for async RDMA reads, and
+uses one sided writes. However the writes are made to a buffer which is polled
+by a server side CPU and later processed as a transaction. This technique in
+some ways is a disaggregation applicable approach. At least the writes side of
+the rx wheel uses disaggregated techniques. However as half of it's structures
+manipulation requires server side processing it is not directly applicable.
+
+\textbf{Herd~\cite{herd}} Herd improves upon both Farm and pilaf by looking
+closely at the RDMA specific behavior of KV stores. It considers the hash
+algorithm carefully to bound the number of one sided reads. And uses RDMA writes
+from server, rather than two sided operations to improve latency. Herds biggest
+contribution is that it closely analyses RDMA performance and choses the verb
+architecture closely. Herd does not apply greatly to disaggregated contexts as
+is fully assumes server side CPUs. However, it's one sided benchmarks are valid
+and valuable for disaggregated designers.
+
+\textbf{erpc,fasst,storm}
+
+\subsection{NUMA}
+
+\textbf{Flat Combining}
+\textbf{Partitioned and replicated state}
+
+\subsection{Lock Free Datastructures}
+
+\subsection{RDMA}
+
+Why use RDMA? There are a variety of ways to manipulate remote memory,
+GMS~\cite{gms} would suggest that we coordinate using full networking stack,
+however in the context of disaggregation we assume no remote CPU's to execute
+the stack. We could connect via a cache coherent interconnect such a
+Kona~\cite{kona} which makes use of cache lines. RDMA is a middle ground. The
+RDMA spec gives a set of \textit{verbs} which are memory operations that the NIC
+can execute. These verbs are similar in some respects to RPC calls, or simple
+instructions. As long as an algorithm can be described using the RDMA calls it
+can be executed on remote memory. The advantage to RDMA is that the operations
+it supports are general. The downside is that some algorithms are difficult to
+execute using one sided verbs. The prototypical example is pointer chaising
+which requires a round trip for each resolved pointer.
 
 
 %currently just a jotting area for ideas.
-\section{Techniques}
+\section{Remote Memory Techniques}
 
 The following are some far/disaggregated memory algorithm design techniques and
 common issues.
@@ -55,7 +134,7 @@ grow arbitrarily. Another technique is to make each entry have it's own checksum
 for it's integrity, and to only update the bucket checksum when all items become
 static.
 
-\textbf{Precomputation} Some optimization are easy with precompuation. Consider
+\textbf{Precomputation} Some optimization are easy with preoccupation. Consider
 Yizhous one level page table. Normally a walk would be required, however they
 access the page with an O(1) hash. To do so they must avoid collisions. They
 push the complexity to malloc which tries continuously to make an virtual address
