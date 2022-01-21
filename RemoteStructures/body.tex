@@ -24,9 +24,13 @@ Disaggregated algorithms have the trait that they are one sided, and computed
 over a network. All shared memory algorithms are one sided, but most of them
 don't scale, however their techniques for dealing with mass concurrency are
 relevant. Therefore the starting place for the history of this exam is
-concurrency algorithms. NUMA systems take care to address the asymmatry of
+concurrency algorithms. NUMA systems take care to address the asymmetry of
 memory accesses and divide operations into local and remote. This asymmetry
-exists in the disaggregated context
+exists in the disaggregated context as well. However rather than any piece of
+data having a \textit{local} master, all true data is remote. NUMA systems which
+allow multiple remote accesses to the same data share this quality, and thus
+their techniques are applicable. NUMA which defers to a local core for remote
+requests does not apply here.
 
 \subsection{key value stores} As such many prior techniques for key value stores
 which take the network into account, such as RDMA optimizations, are still
@@ -56,7 +60,12 @@ uses one sided writes. However the writes are made to a buffer which is polled
 by a server side CPU and later processed as a transaction. This technique in
 some ways is a disaggregation applicable approach. At least the writes side of
 the rx wheel uses disaggregated techniques. However as half of it's structures
-manipulation requires server side processing it is not directly applicable.
+manipulation requires server side processing it is not directly applicable. The
+hash table Farm uses is applicable. They use Hopscotch Hashing~\cite{hopscotch}
+which places data near keys. This allows a single read to get the values it
+needs with a single round trip (as opposed to cuckoo hashing). This pushes the
+complexity to the client. To my knowledge this if the first instance of pushing
+read complexity to the client in any paper.
 
 \textbf{Herd~\cite{herd}} Herd improves upon both Farm and pilaf by looking
 closely at the RDMA specific behavior of KV stores. It considers the hash
@@ -67,7 +76,28 @@ architecture closely. Herd does not apply greatly to disaggregated contexts as
 is fully assumes server side CPUs. However, it's one sided benchmarks are valid
 and valuable for disaggregated designers.
 
-\textbf{erpc,fasst,storm}
+\textbf{fasst~\cite{faast}[\textcolor{red}{x}]} Fasst is Anujs first cut at RPC.
+Similar to ERPC below, FASST argues heavily for the use of two sided verbs to
+reduce the cost of reading. While this makes sense it's not super applicable.
+Many of the observations are around batching, RDMA reliability, and scheduling.
+
+\textbf{erpc~\cite{erpc}[\textcolor{red}{x}]} Erpc focues on common case RPC
+operations, aiming to reduce drops, avoid pfc, and achieve 100MOPS. This is
+almost entirely RDMA optimization. They note that using connections, the
+scalability suffers. Around 4000 connections the read rate starts to drop.
+Unfortunatly many of the implements for scaling such ad the RPC credit system
+rely on server side participation. ERPC is therefore not a good source of info
+for this RE.
+
+
+
+
+\textbf{storm~\cite{storm}} Storm makes the argument that modern NICs have the
+ability to scale well, in contrast to what has been stated in prior work.
+
+\textbf{1RMA~\cite{1rma}}
+
+\textbf{}
 
 \subsection{NUMA}
 
@@ -108,6 +138,14 @@ steering into. This limitation demands that the data structure itself be well
 conditioned for this property, and be able to deal with potential variance in
 its structure.
 
+A potential use for steering is also to perform in place updates while allowing
+for reads. For example imagine updating a range on a data structure [x,y] the
+first step of the operation could be to lock the region, then copy [x,y] to a
+new location [x',y']. During the update reads are steered to the new [x',y'] and
+the update is made in place on the old [x,y]. When the operation is complete the
+steering stops and the update is atomically visible. This could be useful for
+non-pointer based structures like hopscotch hashes~\cite{hopscotch}.
+
 \textbf{Read Size} One tradeoff that can be made to accelerate writes is to make
 them sloppy and push the complexity to the read. This adds a bit of computation
 as the reader must compose the information they require from the unsorted read.
@@ -124,6 +162,16 @@ timestamp then an arbitrary number of processes can have unorganized and full
 write throughput, and push the composition of the data structure to each read,
 where the entire log of each process is read, and executed locally in it's
 entirety.
+
+Algorithms like hopscotch hashing~\cite{hopscotch} (used in Farm~\cite{farm})
+and Robinson hashing~\cite{robinhood} are designed to have good cache locality.
+They are designed with an open addressing (closed hashing) scheme which states
+that an index does not specify the location of the value. However, with these
+hashes it will specify the neighborhood of the data, and provide good locality.
+If this locality is designed to place relevant information in sequential memory
+a scaled up read is appropriate to gain all meta, and data for the structure.
+Perhaps more data structures, designed to be concurrent and cache optimized will
+be good candidates for Disaggregated Memory.
 
 \textbf{Write amplification mitigation} Remote structures sometimes require write
 amplification. Consider a set of entries each guarded with a checksum for
@@ -156,6 +204,20 @@ somehow. Traditional caching techniques can lead to massive bandwidth inflation.
 The second advantage of caching in network is centralization which can reduce
 the communication between hosts.
 
+\section{remote memory traps}
+
+\textbf{Centralized Serialization} My approach uses a centralized serialization
+point to alleviate coordination. However it has been shown that doing all the
+work by a centralized core is slower than a carefully crafted concurrent
+solution~\cite{near-memory-structs}. The insight here is that if we have a core
+close to memory it can do things like pointer chasing faster than remote. They
+demonstrate that PIMs are not sufficient to solve far memory problems. But it
+will become bogged down at some point due to being centralized. That's when a
+concurrent algorithm with less contention moves faster. The key thing about this
+centralized point, is that it must have excess space above line rate with which
+to coordinate. For example in ~\cite{fairnic}[Figure 2] we show that there is
+some headroom for processing with x number of cores. This gap is the processing
+gap that we can use to resolve contention.
 
 \section{notes}
 
@@ -164,7 +226,7 @@ identical. It's the same author, I'm just noting that the change between NUMA
 and Far memory could use this as a case study.
 
 
-Simialr to the concept of a bandwidth delay product, in terms of remote memory
+Similar to the concept of a bandwidth delay product, in terms of remote memory
 there is a latency operation product which is expanded by the time it takes for
 an operation to complete. For example O(1) will have less active operations than
 an O(2) data struture simply by the nature of the operations. Anything requiring
@@ -179,6 +241,14 @@ lock. I think that similar to marking, there should be a way to check a data
 structures in flight operations, if all the operations are known ahead of time,
 and then serialize the requests based on that.
 
+There is a good argument for algorithms between the two worlds of remote memory.
+On one hand we have pure remote memory, one sided operations with zero
+interference. These are unbelievably slow. And we can say from a straw man
+perspective that they could use better algorithms. On the other hand we have
+solutions like in~\cite{design-far-memory-struct,near-memory-structs}, which
+suggest near memory computing with on board compute near memory. In this case
+they also show that with the best near memory compute the old algorithms simply
+do not work because the serialization gets overloaded.
 
 
 %\section{review}  
