@@ -21,26 +21,34 @@ just reading about dissagregated algorithms.
 \section{History}
 
 Disaggregated algorithms have the trait that they are one sided, and computed
-over a network. All shared memory algorithms are one sided, but most of them
-don't scale, however their techniques for dealing with mass concurrency are
-relevant. Therefore the starting place for the history of this exam is
-concurrency algorithms. NUMA systems take care to address the asymmetry of
-memory accesses and divide operations into local and remote. This asymmetry
-exists in the disaggregated context as well. However rather than any piece of
-data having a \textit{local} master, all true data is remote. NUMA systems which
-allow multiple remote accesses to the same data share this quality, and thus
-their techniques are applicable. NUMA which defers to a local core for remote
-requests does not apply here.
+over a network.  All shared memory algorithms are one sided, but few are
+designed to scale for hundreds of cores. Often this leads to bottlenecks around
+shared objects such as locks~\cite{linux-scale}. Any shared memory algorithm or
+technique designed to scale is likely applicable to the disaggregated space.
 
-\subsection{key value stores} As such many prior techniques for key value stores
-which take the network into account, such as RDMA optimizations, are still
-applicable in the disaggregated context. Where the comparison between prior key
-value stores and disaggregation ends is when two sided approaches like RPC or
-two sided RDMA are utilized, especially when they perform the serialization. For
-example, a common paradigms is to have the reads be performed async using one
-sided operations, while the writes are serialized by a two sided operation. This
-allows a CPU to perform the locking and execute multi step critical sections,
-such as pointer chasing, with low latency.
+Therefore the starting place for the history of this exam is concurrency
+algorithms. NUMA systems take care to address the asymmetry of memory accesses
+and divide operations into local and remote. This asymmetry exists in the
+disaggregated context as well. However rather than any piece of data having a
+\textit{local} master, all true data is remote. NUMA systems which allow
+multiple remote accesses to the same data share this quality, and thus their
+techniques are applicable. NUMA which defers to a local core for remote requests
+does not apply here.
+
+\subsection{key value stores} The closest space to resource disaggregation is
+RDMA accelerated key value stores. In this discipline the expectations of
+performance have been pushed to the absolute limit with many projects
+approaching the latency and throughput of raw RDMA. These works make careful
+selection of data structures for efficient integration with
+RDMA~\cite{hopscotch,cuckoo}, and select communication protocols for RDMA which
+promote the highest performance the current generation of hardware can
+offer~\cite{herd,storm}. The direct applicability of prior KV-store work and
+disaggregation end when two sided approaches like RPC or two sided RDMA are
+utilized for serialization. For example, a common paradigms is to have the reads
+be performed async using one sided operations, while the writes are serialized
+by a two sided operation~\cite{pilaf}. This allows a CPU to perform the locking
+and execute multi step critical sections, such as pointer chasing, with low
+latency.
 
 \textbf{Pilaf~\cite{pilaf}} uses just such a mixture of one and two sided RDMA
 operations. The key insight is that if a data structure is architects carefully,
@@ -219,12 +227,21 @@ to coordinate. For example in ~\cite{fairnic}[Figure 2] we show that there is
 some headroom for processing with x number of cores. This gap is the processing
 gap that we can use to resolve contention.
 
+\textbf{RDMA Atomics} Relying on RDMA atomics may lead a design to reach
+artificial bottlenecks. RDMA atomics perform at roughly half the rate of
+identically sized writes. For example Clover~\cite{clover} under extreme
+contention would suffer from the CAS bottleneck. Almost every remote structure
+uses CAS to some extent~\todo{Breif Summary of CAS papers}. Papers such as
+Sherman~\cite{sherman} have noted that they can get better single location CAS
+and FFA performance by utilizing device mapped memory. This is a nice
+performance improvement, but it's still comparatively slow by my own
+measurements.
+
 \section{notes}
 
 The papers~\cite{one-side-hash} and ~\cite{write-optimized-hash} are almost
 identical. It's the same author, I'm just noting that the change between NUMA
 and Far memory could use this as a case study.
-
 
 Similar to the concept of a bandwidth delay product, in terms of remote memory
 there is a latency operation product which is expanded by the time it takes for
