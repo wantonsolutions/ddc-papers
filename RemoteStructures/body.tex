@@ -109,7 +109,24 @@ ability to scale well, in contrast to what has been stated in prior work.
 
 \subsection{NUMA}
 
-\textbf{Flat Combining}
+\textbf{Flat Combining~\cite{flat-combine}} Locks and CAS are expensive in their
+own right, when highly contested the real cost of using either mechanism can
+skyrocket as cache protocols, and fairness skew can dominate access costs and
+inflate tail latencies. Flat combining in a technique similar to message
+passing, dynamically creates a leader for each access to a critical section. The
+leader performs the work of all concurrent requesters in a serialized fashion
+and notifies them upon completion. This technique is extremely powerful and is
+used in NUMA algorithms~\cite{black-box-numa} as well as RDMA~\cite{flock}. The
+key insight here is that the expense of a critical section can be amortized
+significantly if is executed within the local confines of a leader, this
+simultaneously allows for batching. Individual cores may not be able to push the
+request limit of RDMA (7 cores for 8byte 120MOPS on CX5), however on
+any particular algorithm they may. In these cases batching will improve
+performance. For instance Clover~\cite{clover} would have benefited from flat
+combining the requests of local threads, a benefit that Sherman takes complete
+advantage of~\cite{sherman}
+
+
 \textbf{Partitioned and replicated state}
 
 \subsection{Lock Free Datastructures}
