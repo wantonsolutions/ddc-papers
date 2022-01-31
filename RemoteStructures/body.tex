@@ -54,18 +54,37 @@ concepts which will make it accessible to system and application designers.
 Foremost is the uncertain architecture of future disaggregated deployments.
 Various projects have attempted disaggregated instances, with wide variations in
 hardware, from fully custom to
-commodity~\cite{dredbox,firebox,themachine,legoos}, while little conformity has
+commodity~\cite{dredbox,firebox,machine,legoos}, while little conformity has
 been reached in terms of software. These face levels differences make it
 difficult even for researchers to determine which problems need to be solved to
 achieve practical disaggregation.
 
-In this work we begin by summarizing prior work on concurrent algorithms, NUMA
+In this paper we begin by summarizing prior work on concurrent algorithms, NUMA
 algorithms, and RDMA key value stores as many of their techniques lay the
 groundwork for disaggregated systems. Then we highlight what makes
 disaggregation unique in contrast to this prior work and underscore aspects
 which have and have not been addressed. Finally we analyse the first few current
 works on disaggregation specific algorithms and analyse their approaches using
 our criteria to evaluate the completeness of their solutions.
+
+
+\section{What this paper is not}
+
+This paper is not an overview of existing disaggregated systems, it's a focus on
+the data structures which allow for efficient use of remote memory. Many systems
+exist which match the disaggregated model none of which will be covered in
+detail. An overview of many of the dissagregated systems which are not covered
+here can be found in Yelam et.al~\cite{how-to-build}.
+
+Firstly this is not a paper covering remote paging or caching
+systems~\cite{fastswap,kona,infiniswap,leap,legoos}. Each of these has a local
+data structure for managing a virtual memory interface.  However none share data
+across processes so their only performance effect from far memory is the size of
+their cache, paging policy, and round trip time. As such each system is
+primarily constrained by the access pattern of their programs. We consider
+locality optimization to be a single facet of the design space for
+disaggregation and address it more fundamentally in
+Section~\ref{sec:techniques}.
 
 % Disaggregated algorithms have the trait that they are one sided, and computed
 % over a network.  All shared memory algorithms are one sided, but few are
@@ -81,6 +100,67 @@ our criteria to evaluate the completeness of their solutions.
 % multiple remote accesses to the same data share this quality, and thus their
 % techniques are applicable. NUMA which defers to a local core for remote requests
 % does not apply here.
+
+\subsection{Lock Free Data Structures}
+
+
+\subsection{NUMA}
+
+\textbf{Flat Combining~\cite{flat-combine}} Locks and CAS are expensive in their
+own right, when highly contested the real cost of using either mechanism can
+skyrocket as cache protocols, and fairness skew can dominate access costs and
+inflate tail latencies. Flat combining in a technique similar to message
+passing, dynamically creates a leader for each access to a critical section. The
+leader performs the work of all concurrent requesters in a serialized fashion
+and notifies them upon completion. This technique is extremely powerful and is
+used in NUMA algorithms~\cite{black-box-numa} as well as RDMA~\cite{flock}. The
+key insight here is that the expense of a critical section can be amortized
+significantly if is executed within the local confines of a leader, this
+simultaneously allows for batching. Individual cores may not be able to push the
+request limit of RDMA (7 cores for 8byte 120MOPS on CX5), however on
+any particular algorithm they may. In these cases batching will improve
+performance. For instance Clover~\cite{clover} would have benefited from flat
+combining the requests of local threads, a benefit that Sherman takes complete
+advantage of~\cite{sherman}.
+
+
+\textbf{Partitioned and replicated state}
+
+Shared state is a serious bottleneck for highly parallel systems especially when
+the cost of accessing a resource is high. One common pattern is to simply
+partition resources so that no sharing is required. For instance systems like
+LegoOS~\cite{legoos} and FastSwap~\cite{fastswap} don't support any state
+sharing between processes. In multithreaded programs sharing is often an
+unavoidable consequence of the work being done. For higher performance processes
+can replicate parts of the shared structure and cache the portion locally. In
+the case where there is little or no contention this allows processes to make
+forward progress without accessing a shared resource. In the disaggregated
+setting this is particular important as the cost of accessing remote memory is
+particularly high. For instance Clover~\cite{clover} locally caches the metadata
+of it's remote database to perform opportunistic writes, and Black Box
+Numa~\cite{black-box-numa} maintains a replicated log of every operation. Of
+course, when conflicts do occur the benefits of replicating state diminish and
+simply become a memory overhead. The choice of replication strategy, and degree
+of replication which will result in the highest cost to performance boost is
+workload dependent.
+
+\todo{this portion}
+
+\subsection{RDMA}
+
+Why use RDMA? There are a variety of ways to manipulate remote memory,
+GMS~\cite{gms} would suggest that we coordinate using full networking stack,
+however in the context of disaggregation we assume no remote CPU's to execute
+the stack. We could connect via a cache coherent interconnect such a
+Kona~\cite{kona} which makes use of cache lines. RDMA is a middle ground. The
+RDMA spec gives a set of \textit{verbs} which are memory operations that the NIC
+can execute. These verbs are similar in some respects to RPC calls, or simple
+instructions. As long as an algorithm can be described using the RDMA calls it
+can be executed on remote memory. The advantage to RDMA is that the operations
+it supports are general. The downside is that some algorithms are difficult to
+execute using one sided verbs. The prototypical example is pointer chasing
+which requires a round trip for each resolved pointer.
+
 
 \subsection{key value stores} 
 %% %
@@ -151,7 +231,7 @@ ability to scale well, in contrast to what has been stated in prior work.
 
 \textbf{1RMA~\cite{1rma}}
 
-Reading through the 1RMA paper~\cite{1RMA}, they make the case for basically
+Reading through the 1RMA paper~\cite{1rma}, they make the case for basically
 using the NIC to execute remote operations and nothing else. In some respects I
 def get this aspect of the RDMA construction. Push all of the connection
 management to the client side, and just let the RDMA do it's thing with the
@@ -162,56 +242,18 @@ itself. I think that this set of features is somewhat desirable. It would be
 cool if the NICs could basically just work on ethernet packets, and then if we
 wanted we could interpose on the application level info whenever we wanted.
 
-\textbf{}
-
-\subsection{NUMA}
-
-\textbf{Flat Combining~\cite{flat-combine}} Locks and CAS are expensive in their
-own right, when highly contested the real cost of using either mechanism can
-skyrocket as cache protocols, and fairness skew can dominate access costs and
-inflate tail latencies. Flat combining in a technique similar to message
-passing, dynamically creates a leader for each access to a critical section. The
-leader performs the work of all concurrent requesters in a serialized fashion
-and notifies them upon completion. This technique is extremely powerful and is
-used in NUMA algorithms~\cite{black-box-numa} as well as RDMA~\cite{flock}. The
-key insight here is that the expense of a critical section can be amortized
-significantly if is executed within the local confines of a leader, this
-simultaneously allows for batching. Individual cores may not be able to push the
-request limit of RDMA (7 cores for 8byte 120MOPS on CX5), however on
-any particular algorithm they may. In these cases batching will improve
-performance. For instance Clover~\cite{clover} would have benefited from flat
-combining the requests of local threads, a benefit that Sherman takes complete
-advantage of~\cite{sherman}.
-
-
-\textbf{Partitioned and replicated state}
-
-\subsection{Lock Free Datastructures}
-
-\subsection{RDMA}
-
-Why use RDMA? There are a variety of ways to manipulate remote memory,
-GMS~\cite{gms} would suggest that we coordinate using full networking stack,
-however in the context of disaggregation we assume no remote CPU's to execute
-the stack. We could connect via a cache coherent interconnect such a
-Kona~\cite{kona} which makes use of cache lines. RDMA is a middle ground. The
-RDMA spec gives a set of \textit{verbs} which are memory operations that the NIC
-can execute. These verbs are similar in some respects to RPC calls, or simple
-instructions. As long as an algorithm can be described using the RDMA calls it
-can be executed on remote memory. The advantage to RDMA is that the operations
-it supports are general. The downside is that some algorithms are difficult to
-execute using one sided verbs. The prototypical example is pointer chasing
-which requires a round trip for each resolved pointer.
-
 
 %currently just a jotting area for ideas.
 \section{Remote Memory Techniques}
+\label{sec:techniques}
 
 The following are some far/disaggregated memory algorithm design techniques and
 common issues.
 
-
-\textbf{Steering} centralized in network compute can be used to steer and modify
+\subsection{Steering} 
+\label{sec:steering}
+%
+centralized in network compute can be used to steer and modify
 requests when data races and conflicts occur. The downside is that this takes an
 extra bit of in network processing, but it gets a big speed up. In order for a
 middlebox to make the correct steering decision it requires all of the
@@ -228,7 +270,10 @@ the update is made in place on the old [x,y]. When the operation is complete the
 steering stops and the update is atomically visible. This could be useful for
 non-pointer based structures like hopscotch hashes~\cite{hopscotch}.
 
-\textbf{Read Size} One tradeoff that can be made to accelerate writes is to make
+\subsection{Read Size} 
+\label{sec:readsize}
+%%
+One tradeoff that can be made to accelerate writes is to make
 them sloppy and push the complexity to the read. This adds a bit of computation
 as the reader must compose the information they require from the unsorted read.
 As a simple example imagine a multi processes sorted list. Each insert is
@@ -255,7 +300,10 @@ a scaled up read is appropriate to gain all meta, and data for the structure.
 Perhaps more data structures, designed to be concurrent and cache optimized will
 be good candidates for Disaggregated Memory.
 
-\subsection{Write amplification mitigation} Remote structures sometimes require write
+\subsection{Write amplification mitigation}
+\label{sec:write-amplification}
+%%
+Remote structures sometimes require write
 amplification. Consider a set of entries each guarded with a checksum for
 integrity. An update to any entry requires the recomputation of the checksum,
 and the rewrite of the continuous addresses in order to make the write in a
@@ -263,6 +311,18 @@ single round trip. Depending on the bucket size of the entries the write can
 grow arbitrarily. Another technique is to make each entry have it's own checksum
 for it's integrity, and to only update the bucket checksum when all items become
 static.
+
+\subsection{Relaxed Data Layout} Datastructures with struct semantics such as
+ordering are difficult to maintain under contention as potentially many elements
+must be read, and organized to achieve an operation such as an insert. For
+example Sherman~\cite{sherman} uses relaxed ordering in it's B-tree buckets so
+that writes can succeed more frequently. Similarly
+One-Sided-Hash~\cite{one-sided-hash} uses associative cashing and power of two
+in order to allow for multiple write locations. By relaxing the structural
+invariants higher write performance is achieved. However this comes at the cost
+of read inflation~\ref{sec:readsize} as the correct results must be composed
+from an unorganized read. In the case of sherman, relaxing the structure has the
+effect of reducing write amplification.
 
 \subsection{Precomputation} Some optimization are easy with preoccupation. Consider
 Clio's one level page table~\cite{clio}. Normally a walk would be required, however they
@@ -300,6 +360,25 @@ for cache coherence protocols, while Mind~\cite{mind} actually implements one.
 Swordbox actually removes the need for the cache coherence by fixing the missing
 data in network.
 
+\subsection{Client Side Optimizations}
+
+If clients to remote memory are colocated on the same machine local memory can
+be used to consolidate conflicts. For example, designating a single core to make
+requests reduces the number of conflicts at remote
+memory~\cite{flat-combine}~\cite{sherman}. Many disaggregated solutions supposed
+rack scale deployment, therefore while structures must accommodate thousands of
+threads, requests can be consolidated at the machine or NUMA level, to reduce
+round trips caused by failed contended access to remote locations. This
+consolidation requires careful consideration. For example funneling all requests
+through a single core will result in a bottle neck. Therefore all non-blocking
+operations should be made independently. However, locking operations, if
+infrequent could see large performance boosts from client side consolidation.
+
+Properties such as fairness are more easily enforced at the client side. For
+example queues are simple. This can allow for cluster approximate fairness where
+each machine, or numa domain is fair with respect to itself, but not the system
+as a whole.
+
 \subsection{Caching} A variety of caching techniques reduce latency for far memory
 application. Caching allows for a two fold benefit. The first is that the
 distance between requests and the required data is less. Caching on a switch
@@ -308,6 +387,7 @@ dangers with caching is that the important caching data must be determined
 somehow. Traditional caching techniques can lead to massive bandwidth inflation.
 The second advantage of caching in network is centralization which can reduce
 the communication between hosts.
+
 
 \subsubsection{MIND~\cite{mind}}
 
@@ -345,6 +425,56 @@ and FFA performance by utilizing device mapped memory. This is a nice
 performance improvement, but it's still comparatively slow by my own
 measurements.
 
+CAS operations are slightly faster than FAA by my measurements when contested.
+They can be used in concert to achieve differing levels of performance with
+different sematics. For example CAS to lock, and FAA to unlock.
+
+RDMA locks lack fairness. Using existing CAS and FAA locking there is not a
+reasonable way to achieve fair locking with low round trip times. Thus any RDMA
+concurrent structure leveraging CAS locks will potentially lead to starvation
+and high tail latency.
+
+\textbf{Round Trip Locks}
+
+Local serialized locking scales poorly to disaggregation. Acquiring a lock,
+performing work, and then unlocking, is not expensive when memory is only a few
+nanoseconds away, but when each operation represents a round trip its cost
+skyrockets. The common approach takes 4 round trips. The first to acquire the
+lock, the second to read the required data, another to write an update, and a
+final message to unlock. Amortizing this cost is key in disaggregation. Using
+common concurrency patterns the cost can be reduced. For instance it can be
+reduced to 3 by performing the read first, then the write, and then
+opportunistically attempting a lock which commits the write. Typically this will
+fail if the read was stale, or another thread move the data structure forward
+concurrently. This can be further improved by amortizing the reads and writes.
+For instance reads can be done out of band with writes to attempt and keep a
+local cache up to date. On writes, the write is performed simultaneously with
+the opportunistic lock. In the best case this reduces the observed latency on a
+write to a single round trip, but it can easily degrade to many retires if write
+or read data is contested. Clover~\cite{clover} Caches metadata locally and
+performs reads of the metadata out of band. Writes require two round trips, the
+first to perform the write to a processes isolated location, and a second to
+link the write to a shared data structure using an RDMA CAS operation.
+
+\section{Disaggregated Algorithms}
+
+\subsection{Clover}
+
+\subsection{Write Conscious Hashing}
+
+\subsection{Sherman Btree}
+
+Optimizations - Local Caching of locks. Use of In-order delivery RDMA to
+coalesce writes. Unsorted B-Tree leaves. On NIC memory locks.
+
+Client side optimizations. A technique like flat combining is used for local
+locks~\cite{flat-combine}, whenever possible client side locking is used, and
+requests are issued by a centralized client side arbiter. Data structure layout is RDMA optimized.
+
+\subsection{Ford}
+
+\subsection{Mind}
+
 \section{notes}
 
 The papers~\cite{one-sided-hash} and ~\cite{write-optimized-hash} are almost
@@ -354,7 +484,7 @@ and Far memory could use this as a case study.
 Similar to the concept of a bandwidth delay product, in terms of remote memory
 there is a latency operation product which is expanded by the time it takes for
 an operation to complete. For example O(1) will have less active operations than
-an O(2) data struture simply by the nature of the operations. Anything requiring
+an O(2) data structure simply by the nature of the operations. Anything requiring
 a read and a write to complete will take longer to complete due to the round
 trip.
 

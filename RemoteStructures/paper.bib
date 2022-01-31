@@ -1,4 +1,4 @@
-@inproceedings {189914,
+@inproceedings {machine,
 author = {Paolo Faraboschi and Kimberly Keeton and Tim Marsland and Dejan Milojicic},
 title = {Beyond Processor-centric Operating Systems},
 booktitle = {15th Workshop on Hot Topics in Operating Systems (HotOS {XV})},
@@ -6,6 +6,18 @@ year = {2015},
 address = {Kartause Ittingen, Switzerland},
 url = {https://www.usenix.org/conference/hotos15/workshop-program/presentation/faraboschi},
 publisher = {{USENIX} Association},
+}
+
+@inproceedings{firebox,
+  title={FireBox: A Hardware Building Block for 2020 Warehouse-Scale Computers},
+  author={Krste Asanovi{\'c}},
+  year={2014}
+}
+
+@inproceedings{how-to-build,
+  title={How To Build Your Disaggregated Memory System},
+  author={Anil Yelam},
+  url={https://github.com/anilkyelam/research-exam/blob/main/main.pdf},
 }
 
 
@@ -194,7 +206,7 @@ location = {Houston, TX, USA},
 series = {SIGMOD ’18}
 }
 
-@inproceedings{10.1145/3342195.3387522,
+@inproceedings{fastswap,
 author = {Amaro, Emmanuel and Branner-Augmon, Christopher and Luo, Zhihong and Ousterhout, Amy and Aguilera, Marcos K. and Panda, Aurojit and Ratnasamy, Sylvia and Shenker, Scott},
 title = {Can Far Memory Improve Job Throughput?},
 year = {2020},
@@ -468,7 +480,7 @@ publisher = {{USENIX} Association},
 month = jul,
 }
 
-@inproceedings {one-side-hash,
+@inproceedings {one-sided-hash,
 author = {Pengfei Zuo and Jiazhao Sun and Liu Yang and Shuangwu Zhang and Yu Hua},
 title = {One-sided {RDMA-Conscious} Extendible Hashing for Disaggregated Memory},
 booktitle = {2021 USENIX Annual Technical Conference (USENIX ATC 21)},
@@ -686,9 +698,119 @@ location = {Virtual Event, USA},
 series = {SIGCOMM '20}
 }
 
+@inproceedings {linux-scale,
+author = {Silas Boyd-Wickizer and Austin T. Clements and Yandong Mao and Aleksey Pesterev and M. Frans Kaashoek and Robert Morris and Nickolai Zeldovich},
+title = {An Analysis of Linux Scalability to Many Cores},
+booktitle = {9th USENIX Symposium on Operating Systems Design and Implementation (OSDI 10)},
+year = {2010},
+address = {Vancouver, BC},
+url = {https://www.usenix.org/conference/osdi10/analysis-linux-scalability-many-cores},
+publisher = {USENIX Association},
+month = oct,
+}
+
+@article{cuckoo,
+author = {Pagh, Rasmus and Rodler, Flemming Friche},
+title = {Cuckoo Hashing},
+year = {2004},
+issue_date = {May 2004},
+publisher = {Academic Press, Inc.},
+address = {USA},
+volume = {51},
+number = {2},
+issn = {0196-6774},
+url = {https://doi.org/10.1016/j.jalgor.2003.12.002},
+doi = {10.1016/j.jalgor.2003.12.002},
+abstract = {We present a simple dictionary with worst case constant lookup time, equaling the theoretical performance of the classic dynamic perfect hashing scheme of Dietzfelbinger et al. [SIAM J. Comput. 23 (4) (1994) 738-761]. The space usage is similar to that of binary search trees. Besides being conceptually much simpler than previous dynamic dictionaries with worst case constant lookup time, our data structure is interesting in that it does not use perfect hashing, but rather a variant of open addressing where keys can be moved back in their probe sequences. An implementation inspired by our algorithm, but using weaker hash functions, is found to be quite practical. It is competitive with the best known dictionaries having an average case (but no nontrivial worst case) guarantee on lookup time.},
+journal = {J. Algorithms},
+month = {may},
+pages = {122–144},
+numpages = {23},
+keywords = {information retrieval, experiments, searching, dictionaries, data structures, hashing}
+}
+
+@inproceedings{flat-combine,
+author = {Hendler, Danny and Incze, Itai and Shavit, Nir and Tzafrir, Moran},
+title = {Flat Combining and the Synchronization-Parallelism Tradeoff},
+year = {2010},
+isbn = {9781450300797},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/1810479.1810540},
+doi = {10.1145/1810479.1810540},
+abstract = {Traditional data structure designs, whether lock-based or lock-free, provide parallelism via fine grained synchronization among threads.We introduce a new synchronization paradigm based on coarse locking, which we call flat combining. The cost of synchronization in flat combining is so low, that having a single thread holding a lock perform the combined access requests of all others, delivers, up to a certain non-negligible concurrency level, better performance than the most effective parallel finely synchronized implementations. We use flat-combining to devise, among other structures, new linearizable stack, queue, and priority queue algorithms that greatly outperform all prior algorithms.},
+booktitle = {Proceedings of the Twenty-Second Annual ACM Symposium on Parallelism in Algorithms and Architectures},
+pages = {355–364},
+numpages = {10},
+keywords = {synchronization, concurrent data-structures, multiprocessors},
+location = {Thira, Santorini, Greece},
+series = {SPAA '10}
+}
+
   
 
-
+@inproceedings{flock,
+author = {Monga, Sumit Kumar and Kashyap, Sanidhya and Min, Changwoo},
+title = {Birds of a Feather Flock Together: Scaling RDMA RPCs with Flock},
+year = {2021},
+isbn = {9781450387095},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3477132.3483576},
+doi = {10.1145/3477132.3483576},
+abstract = {RDMA-capable networks are gaining traction with datacenter deployments due to their high throughput, low latency, CPU efficiency, and advanced features, such as remote memory operations. However, efficiently utilizing RDMA capability in a common setting of high fan-in, fan-out asymmetric network topology is challenging. For instance, using RDMA programming features comes at the cost of connection scalability, which does not scale with increasing cluster size. To address that, several works forgo some RDMA features by only focusing on conventional RPC APIs.In this work, we strive to exploit the full capability of RDMA, while scaling the number of connections regardless of the cluster size. We present Flock, a communication framework for RDMA networks that uses hardware provided reliable connection. Using a partially shared model, Flock departs from the conventional RDMA design by enabling connection sharing among threads, which provides significant performance improvements contrary to the widely held belief that connection sharing deteriorates performance. At its core, Flock uses a connection handle abstraction for connection multiplexing; a new coalescing-based synchronization approach for efficient network utilization; and a load-control mechanism for connections with symbiotic send-recv scheduling, which reduces the synchronization overheads associated with connection sharing along with ensuring fair utilization of network connections. We demonstrate the benefits for a distributed transaction processing system and an in-memory index, where it outperforms other RPC systems by up to 88% and 50%, respectively, with significant reductions in median and tail latency.},
+booktitle = {Proceedings of the ACM SIGOPS 28th Symposium on Operating Systems Principles},
+pages = {212–227},
+numpages = {16},
+keywords = {Remote Memory Access, Network hardware},
+location = {Virtual Event, Germany},
+series = {SOSP '21}
+}
 
   
+@inproceedings{mind,
+author = {Lee, Seung-seob and Yu, Yanpeng and Tang, Yupeng and Khandelwal, Anurag and Zhong, Lin and Bhattacharjee, Abhishek},
+title = {MIND: In-Network Memory Management for Disaggregated Data Centers},
+year = {2021},
+isbn = {9781450387095},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3477132.3483561},
+doi = {10.1145/3477132.3483561},
+abstract = {Memory disaggregation promises transparent elasticity, high resource utilization and hardware heterogeneity in data centers by physically separating memory and compute into network-attached resource "blades". However, existing designs achieve performance at the cost of resource elasticity, restricting memory sharing to a single compute blade to avoid costly memory coherence traffic over the network.In this work, we show that emerging programmable network switches can enable an efficient shared memory abstraction for disaggregated architectures by placing memory management logic in the network fabric. We find that centralizing memory management in the network permits bandwidth and latency-efficient realization of in-network cache coherence protocols, while programmable switch ASICs support other memory management logic at line-rate. We realize these insights into MIND1, an in-network memory management unit for rack-scale disaggregation. MIND enables transparent resource elasticity while matching the performance of prior memory disaggregation proposals for real-world workloads.},
+booktitle = {Proceedings of the ACM SIGOPS 28th Symposium on Operating Systems Principles},
+pages = {488–504},
+numpages = {17},
+keywords = {Memory disaggregation, Programmable networks},
+location = {Virtual Event, Germany},
+series = {SOSP '21}
+}
 
+@article{clio,
+  author    = {Zhiyuan Guo and
+               Yizhou Shan and
+               Xuhao Luo and
+               Yutong Huang and
+               Yiying Zhang},
+  title     = {Clio: {A} Hardware-Software Co-Designed Disaggregated Memory System},
+  journal   = {CoRR},
+  volume    = {abs/2108.03492},
+  year      = {2021},
+  url       = {https://arxiv.org/abs/2108.03492},
+  eprinttype = {arXiv},
+  eprint    = {2108.03492},
+  timestamp = {Wed, 11 Aug 2021 15:24:08 +0200},
+  biburl    = {https://dblp.org/rec/journals/corr/abs-2108-03492.bib},
+  bibsource = {dblp computer science bibliography, https://dblp.org}
+}
+
+@INPROCEEDINGS{dredbox,
+  author={Katrinis, K. and Syrivelis, D. and Pnevmatikatos, D. and Zervas, G. and Theodoropoulos, D. and Koutsopoulos, I. and Hasharoni, K. and Raho, D. and Pinto, C. and Espina, F. and Lopez-Buedo, S. and Chen, Q. and Nemirovsky, M. and Roca, D. and Klos, H. and Berends, T.},
+  booktitle={2016 Design, Automation   Test in Europe Conference   Exhibition (DATE)}, 
+  title={Rack-scale disaggregated cloud data centers: The dReDBox project vision}, 
+  year={2016},
+  volume={},
+  number={},
+  pages={690-695},
+  doi={}
+}
