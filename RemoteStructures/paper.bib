@@ -814,3 +814,53 @@ series = {SOSP '21}
   pages={690-695},
   doi={}
 }
+
+@inproceedings{netlock,
+author = {Yu, Zhuolong and Zhang, Yiwen and Braverman, Vladimir and Chowdhury, Mosharaf and Jin, Xin},
+title = {NetLock: Fast, Centralized Lock Management Using Programmable Switches},
+year = {2020},
+isbn = {9781450379557},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3387514.3405857},
+doi = {10.1145/3387514.3405857},
+abstract = {Lock managers are widely used by distributed systems. Traditional centralized lock managers can easily support policies between multiple users using global knowledge, but they suffer from low performance. In contrast, emerging decentralized approaches are faster but cannot provide flexible policy support. Furthermore, performance in both cases is limited by the server capability.We present NetLock, a new centralized lock manager that co-designs servers and network switches to achieve high performance without sacrificing flexibility in policy support. The key idea of NetLock is to exploit the capability of emerging programmable switches to directly process lock requests in the switch data plane. Due to the limited switch memory, we design a memory management mechanism to seamlessly integrate the switch and server memory. To realize the locking functionality in the switch, we design a custom data plane module that efficiently pools multiple register arrays together to maximize memory utilization We have implemented a NetLock prototype with a Barefoot Tofino switch and a cluster of commodity servers. Evaluation results show that NetLock improves the throughput by 14.0-18.4x, and reduces the average and 99% latency by 4.7-20.3x and 10.4-18.7x over DSLR, a state-of-the-art RDMA-based solution, while providing flexible policy support.},
+booktitle = {Proceedings of the Annual Conference of the ACM Special Interest Group on Data Communication on the Applications, Technologies, Architectures, and Protocols for Computer Communication},
+pages = {126–138},
+numpages = {13},
+keywords = {Programmable Switches, Lock Management, Centralized, Data plane},
+location = {Virtual Event, USA},
+series = {SIGCOMM '20}
+}
+
+@inproceedings {netchain,
+author = {Xin Jin and Xiaozhou Li and Haoyu Zhang and Nate Foster and Jeongkeun Lee and Robert Soul{\'e} and Changhoon Kim and Ion Stoica},
+title = {{NetChain}: {Scale-Free} {Sub-RTT} Coordination},
+booktitle = {15th USENIX Symposium on Networked Systems Design and Implementation (NSDI 18)},
+year = {2018},
+isbn = {978-1-939133-01-4},
+address = {Renton, WA},
+pages = {35--49},
+url = {https://www.usenix.org/conference/nsdi18/presentation/jin},
+publisher = {USENIX Association},
+month = apr,
+}
+
+@MISC{tofino3,
+    title = "Intel Tofino 3 Intelligent Fabric Brief",
+    howpublished = "\url{https://www.intel.com/content/www/us/en/products/network-io/programmable-ethernet-switch/tofino-3-brief.html}",
+    year = 2020
+}
+
+@INPROCEEDINGS{corundum,
+  author={Forencich, Alex and Snoeren, Alex C. and Porter, George and Papen, George},
+  booktitle={2020 IEEE 28th Annual International Symposium on Field-Programmable Custom Computing Machines (FCCM)}, 
+  title={Corundum: An Open-Source 100-Gbps Nic}, 
+  year={2020},
+  volume={},
+  number={},
+  pages={38-46},
+  doi={10.1109/FCCM48280.2020.00015}}
+
+
+
