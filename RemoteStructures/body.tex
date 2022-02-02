@@ -427,7 +427,7 @@ measurements.
 
 CAS operations are slightly faster than FAA by my measurements when contested.
 They can be used in concert to achieve differing levels of performance with
-different sematics. For example CAS to lock, and FAA to unlock.
+different semantics. For example CAS to lock, and FAA to unlock.
 
 RDMA locks lack fairness. Using existing CAS and FAA locking there is not a
 reasonable way to achieve fair locking with low round trip times. Thus any RDMA
@@ -469,11 +469,65 @@ coalesce writes. Unsorted B-Tree leaves. On NIC memory locks.
 
 Client side optimizations. A technique like flat combining is used for local
 locks~\cite{flat-combine}, whenever possible client side locking is used, and
-requests are issued by a centralized client side arbiter. Data structure layout is RDMA optimized.
+requests are issued by a centralized client side arbiter. Data structure layout
+is RDMA optimized. Sherman is truly write optimized. When writes occur they are
+unordered on their leaf nodes to prevent write amplification and the need to
+retry. Reads are totally async and use entry level version numbers to validate
+themselves. Lookups can fail frequently, and the remedy is to retry. For
+instance overlapping reads and writes will lead to a retry. Range query are
+complex in that they do no contain consistent values. For transactional reads to
+occur reads must also lock. This is a strict lessening of constancy which may
+not be desireable for future applications.
 
 \subsection{Ford}
 
+\section{Middlebox Incorporation}
+
+The increased gap between computational resources and memory in the
+disaggregated model leads to poor performance in some cases. The most blatant is
+serialization on contended resources. As noted in Sherman, Clover, Conscious
+Hashing~\cite{sherman,clover,one-sided-hash}, writes must be carefully
+coordinated to avoid collisions. Fast serialization can be achieved using a
+centralized source such as programable hardware in the network. This hardware
+performs serialization at the physical level, and is able to process millions of
+requests per second. Netlock~\cite{netlock} demonstrates that a switch can
+provide centralized locking for millions of requests per second. Mind,
+demonstrates that memory protection and cache coherence can be maintained by a
+switch~\cite{mind}, and NetChain demonstrated that a set of switches can be used
+to obtain millions of consensus operations per second. There are countless works
+on in network acceleration for a variety of tasks~\todo{ipipe,netcache,itterally all the things}.
+
+Including a middlebox into the architectural design of a disaggregated system is
+a common pattern~\cite{disandapp}. In this model a centralized network device
+provides some memory services to the application such as memory protection. The
+performance benefit from serialization makes network devices tempting as a key
+component of disaggregated systems especially with the proliferation of
+programmable networking platforms such as Barefoot Tofino~\cite{tofino3} and
+Corundum~\cite{corundum} make developing such software more accessible than ever.
+
+However there is a sweet spot in terms of utility with programable network
+devices~\ref{fig:middlebox_model} shows a general model for network hardware
+performance as it does more work per packet. If the work nessisary from a
+middlebox is higher than a specific number of cycles per packet, then the
+overall performance drops below the beneficial range. It has been show in
+simulations for PIM architectures that a centralized serialization point for
+operations like pointer chasing can slow down operations compared to well
+designed data structures for concurrency~\todo{pim}.
+
+\begin{figure}
+    \includegraphics[width=0.45\textwidth]{fig/middlebox_model.png}
+
+    \caption{Middlebox only support a bounded number of cycles per operation
+    before their performance drops below line rate. A programs performance can
+    only benefit from middlebox intervention if it's requirements per operation
+    fall below this threshold.}
+
+    \label{fig:middlebox_model}
+\end{figure}
+
 \subsection{Mind}
+
+
 
 \section{notes}
 
@@ -507,6 +561,8 @@ do not work because the serialization gets overloaded.
 
 Would it be possible to implement transactional memory on a switch? How far off
 is Mind~\cite{mind} from doing this?
+
+\section{Figures}
 
 
 
