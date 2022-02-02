@@ -1,0 +1,172 @@
+\section{Generalization of Disaggregated Data structures}
+
+Resource disaggregation promises extreme flexibility and utility for future
+generations of data center architectures. Current networking trends of 100, to
+400Gbps have lowered intra rack latencies single digit microseconds, making
+remote memory only an order of magnitude slower than locally accessed dram.
+These trends suggest disaggregation is a soon to be reality, unfortunately while
+the hardware which enables this architecture exists the systems technology in
+terms of algorithms and data structures has lagged behind. Access and
+manipulation of disaggregated memory is one sided and expensive. Round trips are
+prohibitively expensive in terms of latency, so new designs are required which
+prioritize the O(1) access of remote memory, potentially at the cost of local
+compute and memory utilization. Recently a few systems have been developed to
+allow arbitrary programs to run on disaggregated
+memory~\cite{legoos,leap,fastswap,reigons}, however they suffer extreme
+performance degradation, or fail to support sharing.  Attempts have been made to
+develop data structures which are finely tuned for remote
+memory~\cite{clover,one-sided-hash,sherman}. We posit that for performance
+reasons bespoke structure are the stepping stone to usable remote memory.
+
+In this work we propose a general framework for disaggregated data structures.
+The technique is similar to prior work on generalized algorithms for NUMA
+systems~\cite{black-box-numa} in that individual processes cache a local
+representation of a far memory data structure and use a central linearized log
+maintained in shared memory for global consistency. This work differs from NUMA
+architectural assumptions significantly, exploiting common design aspects of
+disaggregated architectures which allow for small amounts of in network compute
+on the data path. Our approach assumes a rack scale disaggregated architecture
+in which all remote memory accesses pass through a centralized
+switch~\cite{disandapp,Grant2021InContRes}. We make use of a centralized
+programable switch to provide line rate serialization of concurrent operations
+to shared structures. Specifically we use it arbitrate appends to a shared log,
+and to mend data races in network for contested operations. By removing
+contention our work extends the ideas of prior NUMA aware data
+structures~\cite{black-box-numa} as there is no need to block.
+
+Middle boxes, specifically programmable switches and NICs are highly resources
+constrained. As such maintaining data on the switch is expensive which creates a
+problem when resolving data conflicts. Our technique for conflict resolution
+detects concurrent contending requests and serializes them so that there is no
+need to fail and experience expensive round trips.  Detecting and mending such
+conflicts is trivial if the entire structure is cached in network, however this
+is not practical for data structures which span GB. One option is to design
+structures which require a small amount of data in order to resolve conflicts.
+For instance our shared log requires only that the last address appended to be
+cached in order to steer new append requests to the end of the log. For general
+data structures this is not the case, consider an insert into a linked list. To
+resolve all conflicts the entire list must be stored in network.
+
+We propose a novel technique for detecting conflicts by only caching and
+removing conflicts from in flight messages. At a high level our algorithm only
+maintains portions of a data structure which are currently being modified by
+building up the contested portions at runtime and releasing them when the
+operations complete. As such this bounds the required in network memory and
+compute requirements to the number of potential in flight operations, this
+measure is similar in concept to a bandwidth delay product. To detect conflicts
+each client operation begins with an append to the shared log, our middlebox
+tracks the append, and keeps the operation cached until the final message of the
+operation is returned to the client. If client operations are out of date i.e
+they are not in conflict, however they cannot complete, the client falls back to
+reading the shared log to update it's local metadata representation of the
+shared structure.
+
+We show that this technique is general and develop common data structures in far
+memory and compare them with a naive version of themselves. We then compare our
+generalized implementation of existing projects such as Clover~\cite{clover} and
+Sherman~\cite{sherman} with a generalized version of the same algorithm
+implemented by ourselves.
+
+\section{RDMA atomic considerations}
+
+The crux of our technique is the ability to have low cost serialization. Prior
+work has shown that RDMA atomic operations are slow. In order to allow for high
+performance shared structures to be implemented in general we require
+serialization on a single shared log. In prior work, atomics on a single address
+were shown to have performance limitations around 2M ops per
+second~\cite{design-guidelines}. Recently design improvements for RDMA enabled
+NICs such as CX5 are able to achieve up to 9Mops on a single address by using
+specially allocated device mapped memory. While these improvements are
+impressive they do not scale to the performance expected of remote structures
+(20-30Mops). Alternative techniques such as appending to lists can allow for
+hundreds of millions of operations per second, however this is only possible
+without contention, under real workloads contention reduces this theoretical
+improvement down to a few hundred thousand operations per second. Recent
+techniques have show that by removing contention in network atomics can be
+scaled to the performance of writes~\cite{Grant2021InContRes}. Using this
+technique we are able to realize a shared serialized log which supports 10s of
+millions of operations per second.
+
+
+The goal is to generalize the idea of using in networking contention resolution
+for all data structures. The first key idea is having a shared log. Think sort
+of like~\cite{black-box-numa}.
+
+The goal is to have all operations execute in
+O(1) or minimal time, even under contention.  Simultaneously the switch needs
+to keep as little state as possible. Not that this is trivial for all data
+structures if the switch keeps track of all of the data. The key idea is that
+the switch serializes all operations by writing them to a shared log. Consider
+operations to a linked linked list like insert. IF there is a linked list with
+two objects 1,5 and we call insert 2, and insert 3. Imagine that what would be
+written to the log is Insert 2,1,5 and insert 3,1,5 for concurrent requests.
+These are in conflict if left to their own devices as only one of the two will
+results in a connected state, either 1$\rightarrow$2$\rightarrow$5 or 1$\rightarrow$3$\rightarrow$5. The point of the log is
+to ensure that all of the operations are linearized. Imagine that the switch
+keeps in flight operations cached to detect conflicts. So here the two appends
+to the shared log insert 2,1,5 and 3,1,5 are cached. If 3 came after then it
+will get modified in flight to 3,2,5. If 2 came after it will be modified to
+2,1,3. The switch will then modify the addresses in flight so that the data
+structure stays in tact. A key thing here is that the switch only needed to
+hold a small amount of intermediate state to ensure that the operations
+actually succeeded. This is the first use of the log, to inform the switch of
+the operations while they are in flight. It's assumed that the switch has the
+logic built in to understand what the final operation of a sequence looks like
+and then remove it from the set of in flight operations at the point in time
+that they complete. For example here if the operations were Write [insert
+2,1,5], Write[2], Write[2$\rightarrow$5], CAS[1$\rightarrow$2] the CAS[1$\rightarrow$2] would be the operation
+that removed the request from the switches set of online operations. This alone
+removes the need for the switch to keep the whole list in memory and instead
+bounds the switches memory usage by the operation bandwidth product. Or how many
+operations can be in flight.
+
+The log has a duel purpose wich is to be a centralized linear definition of the
+data structure. Any of the threads working on the structure can replay the log
+from the beginning. Recall that the middlebox will make sure that all log
+operations succeed. There is no need to cas on the log because it will be in
+charge of it's appends writes can just be steered to the correct offset. The
+only thing the switch needs to maintain is the offset of the last write which is
+a single virtual address. Alternatively we could use cas and only have the switch
+steer in times of conflict. This would reduce the need to checksum on the
+switch. The downside is the CAS bottleneck at 50MOPS. This would need to be
+something we determined empirically. Given that each thread can read the log,
+they can build up a local cache of the data structure. The shape of this cache
+is implementation dependent. However it would be used to make up to date
+requests. For example if the Insert 2,1,5 was very out of date, lets assume the
+true list is 1$\rightarrow$3$\rightarrow$4$\rightarrow$5 then it will fail. If there is no in flight conflict the
+switch will not flag it. Then the client just needs to read the log, and update
+it's local version to the most up to date. As the log can be linear in memory
+large reads can be used to reach the end of the log quickly. Obviously the size
+of this log is variable, it could be garbage collected somehow. This design is
+very similar to clover, however it generalizes to whole classes of data
+structures while still allowing for async operations.
+
+\textbf{Dealing with old requests}
+
+Imaging an old request being allowed to flow through the switch. It will fail
+because it has out of date information. For example on a linked list 1$\rightarrow$3$\rightarrow$5 it
+runs insert 2,1,5. Now in the clover case this is allowed to fail when the CAS
+is executed on 1$\rightarrow$5 because it expects to see 5, but gets 3 instead. In our case
+though, if we are storing the request in network to repair conflicts we could
+get screwed up. Naively imaging another request runs insert 4,1,5 also old.
+Well we would look at this and modify it to be 4,2,5 which is still incorrect
+because it should be 4,3,5. In this way we fixed the conflict, but it still does
+not work because we were working on old data. I can think of a few fixes. The
+most naive is to only allow log appends if they are truly at the end of the
+list. This is the worst because it falls back to the same retry scheme and
+assumes that the client is always fully up to date. We want to fix the appends
+to the list. What this means is that we should support appends even if they are
+far back. The key is to determine if the staleness of the request also results
+in a conflict. In this way a stale request is similar to a concurrent request. I
+think that this is fixable by treating the last n elements of the log as
+concurrent and maintaining those operation on the switch as if they were in
+flight. I believe that this will work, however it raises some more corner cases.
+The first of which is when to cause an operation to fail. One way to to have the
+append fail. If the client is only using CAS this is easy, we just don't steer
+it and it fails. The hard part is that the next few operations need to be
+stopped somehow.  One way to to have the append fail. If the client is only
+using CAS this is easy, we just don't steer it and it fails. The hard part is
+that the next few operations need to be stopped somehow. We could easily make it
+so that the append has to happen, then the operations, but it's an extra round
+trip. Ideally we could somehow allow the operations to go through, at least
+part, but only the bit that does not interfere.
