@@ -21,52 +21,66 @@
 
 \section{Introduction}
 
-Disaggregation is an architectural paradigm which separates resources by a
-network. While the network provides flexibility, it comes at the cost of latency
--- no where is this more noticeable then the gap between CPU and memory.
-Traditionally, access to the memory of a remote machine has be guarded by a CPU
-collocated with the memory which can provide serialization service on the
-memory, for example an RPC call. Without a remote CPU to serialize all memory
-accesses must be coordinated remotely, skyrocketing the cost coordination in the
-disaggregated setting.
+Disaggregation is an architectural paradigm which separates a computers
+resources by a network. While the network provides flexibility, it comes at the
+cost of additional access latency
+-- no where is this more noticeable than the gap between CPU and main memory.
+Traditionally, access to the memory of a remote machine is guarded by a CPU
+which provides operation serialization, for example RPC calls.  Such
+serialization is impossible in the disaggregated setting as by definition no
+such CPU exists along side memory. This absence causes causes the cost of
+traditional serialization mechanisms, such as locks, to skyrocket when naively
+ported to remote memory.
 
-This high cost coordination environment is not new territory. To reduce
-contention overheads in concurrent systems entire classes of lockless data
-structures have been produced to reduce contention to only contested regions of
-data~\cite{}\todo{add all concurrent structures}. Similarly the advent of NUMA
-servers lead to the production of new latency aware algorithms and data
-structures which allowed continual
-scaling~\cite{linux-scale,black-box-numa}\todo{many cites for numa}. The common
-thread that ties these two approaches to the concept of disaggregation is that
-memory accesses are one sided, and the latency cost course grained serialization
-is high.
+Fighting high cost coordination is not a new battle. Entire classes of lockless
+data structures have been designed to prevent contention unless true data races
+exist, allowing for uncontested access to shared structures.  ~\cite{}\todo{add
+all concurrent structures}. Similarly the advent of NUMA servers lead to the
+production of new locality aware algorithms and data structures which scale to
+thousands of cores.  ~\cite{linux-scale,black-box-numa}\todo{many cites for
+numa}. The common thread that ties these two approaches to the concept of
+disaggregation is that memory accesses are one sided, and the latency cost
+course grained serialization is high.
 
-These new frontiers are challenging for all involved. It pushes system designers
-to carefully design data structures using the lowest synchronization primitives
-possible for each task. Further it requires application designers to understand
-their application constraints and make intelligent choices for their data
-structure usage. While this burden is high, history shows us that it's
-achievable~\cite{}~\todo{concurrent linked list, big table, ect} when there is a
-lust for scalability and performance.
+Disaggregation extends the notion of NUMA to beyond a single machine and into
+new territories of system architecture. The most striking addition is that high
+speed programmable networks now are an integral part of the design space. The
+choice of networking hardware, in terms of switches, NICs, and transports like
+PCIe have a direct impact on the design of the operating system, algorithms, and
+data structures built to run on
+them~\cite{dredbox,firebox,machine,legoos,supernic}. For example by leveraging
+programmable networking hardware core operating system components like TLB's and
+address protection can be implemented in network~\cite{mind}.  This landscape of
+system and algorithm design choices forces system builders to carefully design
+data structures for specific tasks.  In particular they must prioritize weak
+forms of synchronization whenever possible, and reason with extreme care when
+integrating networking devices as they are highly resource constrained.
+
+% Further it requires application designers to understand their
+% application constraints and make intelligent choices for their data structure
+% usage. While this burden is high, history shows us that it's
+% achievable~\cite{}~\todo{concurrent linked list, big table, ect} when there is a
+% lust for scalability and performance.
 
 Disaggregation is still in it's infancy, and it currently lacks the tools and
 concepts which will make it accessible to system and application designers.
-Foremost is the uncertain architecture of future disaggregated deployments.
-Various projects have attempted disaggregated instances, with wide variations in
-hardware, from fully custom to
-commodity~\cite{dredbox,firebox,machine,legoos}, while little conformity has
-been reached in terms of software. These face levels differences make it
-difficult even for researchers to determine which problems need to be solved to
-achieve practical disaggregation.
+While a litany of prototypes have been built which demonstrate the feasibility
+of
+disaggregation~\cite{infiniswap,fastswap,leap,legoos,aifm,kona,reigons,sotware-far,lite,semeru}
+conformity has been reached in terms of system design, algorithms, and data
+structures. These face levels differences make it difficult even for researchers
+to determine which problems are the highest priority to achieve practical
+disaggregation.
 
-In this paper we begin by summarizing prior work on concurrent algorithms, NUMA
-algorithms, and RDMA key value stores as many of their techniques lay the
-groundwork for disaggregated systems. Then we highlight what makes
-disaggregation unique in contrast to this prior work and underscore aspects
-which have and have not been addressed. Finally we analyse the first few current
-works on disaggregation specific algorithms and analyse their approaches using
-our criteria to evaluate the completeness of their solutions.
-
+In this paper we survey prior algorithmic and data structure trends driven by
+shared memory scalability and asks the questions \textit{What techniques apply
+to disaggregation, and which do not?}. This survey covers concurrent data
+structures, NUMA data structures, and RDMA key value stores which make use of
+one sided operations.  Finally we analyse the first few current works on
+disaggregation specific algorithms and analyse their approaches using our
+criteria to evaluate the completeness of their solutions.  A particular focus is
+placed on network optimizations as we consider the network to be the key
+difference between disaggregation and prior system architectures.
 
 \section{What this paper is not}
 

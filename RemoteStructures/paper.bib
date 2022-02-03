@@ -258,24 +258,6 @@ publisher = {{USENIX} Association},
 month = jul,
 }
 
-@article{10.1145/224057.224072,
-author = {Feeley, M. J. and Morgan, W. E. and Pighin, E. P. and Karlin, A. R. and Levy, H. M. and Thekkath, C. A.},
-title = {Implementing Global Memory Management in a Workstation Cluster},
-year = {1995},
-issue_date = {Dec. 3, 1995},
-publisher = {Association for Computing Machinery},
-address = {New York, NY, USA},
-volume = {29},
-number = {5},
-issn = {0163-5980},
-url = {https://doi.org/10.1145/224057.224072},
-doi = {10.1145/224057.224072},
-journal = {SIGOPS Oper. Syst. Rev.},
-month = dec,
-pages = {201–212},
-numpages = {12}
-}
-
   
 
 @inproceedings{gms,
@@ -864,3 +846,32 @@ month = apr,
 
 
 
+@inproceedings{software-far,
+author = {Lagar-Cavilla, Andres and Ahn, Junwhan and Souhlal, Suleiman and Agarwal, Neha and Burny, Radoslaw and Butt, Shakeel and Chang, Jichuan and Chaugule, Ashwin and Deng, Nan and Shahid, Junaid and Thelen, Greg and Yurtsever, Kamil Adam and Zhao, Yu and Ranganathan, Parthasarathy},
+title = {Software-Defined Far Memory in Warehouse-Scale Computers},
+year = {2019},
+isbn = {9781450362405},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3297858.3304053},
+doi = {10.1145/3297858.3304053},
+abstract = {Increasing memory demand and slowdown in technology scaling pose important challenges to total cost of ownership (TCO) of warehouse-scale computers (WSCs). One promising idea to reduce the memory TCO is to add a cheaper, but slower, "far memory" tier and use it to store infrequently accessed (or cold) data. However, introducing a far memory tier brings new challenges around dynamically responding to workload diversity and churn, minimizing stranding of capacity, and addressing brownfield (legacy) deployments. We present a novel software-defined approach to far memory that proactively compresses cold memory pages to effectively create a far memory tier in software. Our end-to-end system design encompasses new methods to define performance service-level objectives (SLOs), a mechanism to identify cold memory pages while meeting the SLO, and our implementation in the OS kernel and node agent. Additionally, we design learning-based autotuning to periodically adapt our design to fleet-wide changes without a human in the loop. Our system has been successfully deployed across Google's WSC since 2016, serving thousands of production services. Our software-defined far memory is significantly cheaper (67% or higher memory cost reduction) at relatively good access speeds (6us) and allows us to store a significant fraction of infrequently accessed data (on average, 20%), translating to significant TCO savings at warehouse scale.},
+booktitle = {Proceedings of the Twenty-Fourth International Conference on Architectural Support for Programming Languages and Operating Systems},
+pages = {317–330},
+numpages = {14},
+keywords = {far memory, machine learning, memory, warehouse-scale computers, cold data, zswap},
+location = {Providence, RI, USA},
+series = {ASPLOS '19}
+}
+
+@inproceedings {semeru,
+author = {Chenxi Wang and Haoran Ma and Shi Liu and Yuanqi Li and Zhenyuan Ruan and Khanh Nguyen and Michael D. Bond and Ravi Netravali and Miryung Kim and Guoqing Harry Xu},
+title = {Semeru: A {Memory-Disaggregated} Managed Runtime},
+booktitle = {14th USENIX Symposium on Operating Systems Design and Implementation (OSDI 20)},
+year = {2020},
+isbn = {978-1-939133-19-9},
+pages = {261--280},
+url = {https://www.usenix.org/conference/osdi20/presentation/wang},
+publisher = {USENIX Association},
+month = nov,
+}
