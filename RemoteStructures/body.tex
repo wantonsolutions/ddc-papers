@@ -168,32 +168,55 @@ transits a centralized switch, and all the traffic for an individual machine
 flows through that machines NIC.
 
 \begin{table*}[t]
+%\begin{table}[h]
     \centering
-    \begin{tabular}{ c | c | c | c | c | c | c | c | c }
-        & \shortstack{read \\ inflation} & \shortstack{relaxed  \\ layout} & \shortstack{pre-\\computation} & \shortstack{optimistic \\ concurrency} & \shortstack{metadata \\ caching} & \shortstack{client \\ coalescing} & \shortstack{write \\ amplification} & \shortstack{self \\ verifing}  \\ \hline
+    \begin{tabular}{ c | c | c | c | c | c | c | c | c | c }
+        & project & \shortstack{read \\ inflation} & \shortstack{relaxed  \\ layout} & \shortstack{pre-\\compute} & \shortstack{optimistic \\ concurrency} & \shortstack{metadata \\ caching} & \shortstack{client \\ coalescing} & \shortstack{write \\ amp} & \shortstack{self \\ verifing}  \\ \hline
                                                                 %N          %R          %P          %O          %M          %C          %W          %S
-      pilaf~\cite{pilaf}                                      & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \fullcirc \\ \hdashline
-      farm~\cite{farm}                                        & \fullcirc & \nullcirc & \nullcirc & \fullcirc & \fullcirc & \fullcirc & \nullcirc & \nullcirc \\ \hdashline
-      herd~\cite{herd}                                        & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc \\ \hdashline
-      cell~\cite{cell}                                        & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \fullcirc & \nullcirc & \nullcirc & \fullcirc \\ \hdashline
-      % fasst~\cite{faast}                                      & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc \\ \hdashline
-      % erpc~\cite{erpc}                                        & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc \\ \hdashline
-      storm~\cite{storm}                                      &  &  &  &  &  &  &  &  \\ \hdashline
-      1RMA~\cite{1rma}                                        &  &  &  &  &  &  &  &  \\ \hline
-      \shortstack{Flat \\ Combining}~\cite{flat-combine}      &  &  &  &  &  &  &  &  \\ \hdashline
-      \shortstack{Hopscotch \\ Hash}~\cite{hopscotch}         &  &  &  &  &  &  &  &  \\ \hline
-      \shortstack{Blackbox \\ NUMA}~\cite{black-box-numa}     &  &  &  &  &  &  &  &  \\ \hline \hline
-      Clover~\cite{clover}                                    &  &  &  &  &  &  &  &  \\ \hline
-      \shortstack{Concious \\Hashing}~\cite{write-op-hash}    &  &  &  &  &  &  &  &  \\ \hline
-      Sherman~\cite{Sherman}   & & & & & & & \\ \hline \hline
-      Mind~\cite{mind}   & & & & & & & \\ \hline
+\multirow{6}{*}{\rotatebox[origin=c]{90}{\shortstack{RDMA \\ Key-Value}}} & pilaf~\cite{pilaf}                                      & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \fullcirc \\ \cdashline{2-10}
+         & farm~\cite{farm}                                        & \fullcirc & \nullcirc & \nullcirc & \fullcirc & \fullcirc & \fullcirc & \nullcirc & \nullcirc \\ \cdashline{2-10}
+         & herd~\cite{herd}                                        & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc \\ \cdashline{2-10}
+         & cell~\cite{cell}                                        & \nullcirc & \nullcirc & \nullcirc & \halfcirc & \fullcirc & \nullcirc & \nullcirc & \fullcirc \\ \cdashline{2-10}
+         % & % fasst~\cite{faast}                                      & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc \\ \hdashline
+         % & % erpc~\cite{erpc}                                        & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc \\ \hdashline
+         & storm~\cite{storm}                                      &  &  &  &  &  &  &  &  \\ \cdashline{2-10}
+         & 1RMA~\cite{1rma}                                        &  &  &  &  &  &  &  &  \\ \hline
+\multirow{2}{*}{\rotatebox[origin=c]{90}{\shortstack{Misc \\ Scalable}}} & \shortstack{Flat \\ Combining}~\cite{flat-combine}      &  &  &  &  &  &  &  &  \\ \cdashline{2-10}
+         & \shortstack{Hopscotch \\ Hash}~\cite{hopscotch}         &  &  &  &  &  &  &  &  \\ \cline{1-10}
+\multirow{1}{*}{\rotatebox[origin=c]{0}{\shortstack{NUMA}}} & \shortstack{Blackbox \\ NUMA}~\cite{black-box-numa}     &  &  &  &  &  &  &  &  \\ \hline \hline %\cline{2-10} \cline{2-10}
+\multirow{3}{*}{\rotatebox[origin=c]{90}{\shortstack{\small Disaggregated \\ \small Datastructures }}}        & Clover~\cite{clover}                                    &  &  &  &  &  &  &  &  \\ \cdashline{2-10}
+         & \shortstack{Concious \\Hashing}~\cite{write-op-hash}            &  &  &  &  &  &  &  &  \\ \cdashline{2-10}
+         & Sherman~\cite{Sherman}                                          &  &  &  &  &  &  & \\ \cdashline{2-10}
+         & Mind~\cite{mind}                                                &  &  &  &  &  &  & \\ \hline
 
 
     \end{tabular}
     \caption{Blabla}
     \label{tab:1}
   \end{table*}
+  %\end{table}
+
+
+  % \begin{table*}[h]
+  % \centering
+  % %     \begin{adjustbox}{width=\textwidth,center}
+  %     % \begin{adjustbox}{center}
+  %         \begin{tabular}{lll}
+  %             \hline
+  %             \multirow{4}{*}{\rotatebox[origin=c]{90}{XXX}} & \multicolumn{1}{l}{XXX} & \multicolumn{1}{l}{XXX} \\\cline{2-3}
+  %                                  & \multicolumn{1}{l}{XXX} & \multicolumn{1}{l}{XXX} \\\cline{2-3}
+  %                                  & \multicolumn{1}{l}{XXX} & \multicolumn{1}{l}{XXX} \\\cline{2-3}
+  %                                  & \multicolumn{1}{l}{XXX} & \multicolumn{1}{l}{XXX} \\\hline
+  %             \ttfamily xxx & \ttfamily xxx & \ttfamily xxx \\                \hline
+  %         \end{tabular}
+  % %     \end{adjustbox}
+  % %     \vspace{ - 05 mm}
+  %     \caption{xxx}
+  %     \label{tab:xxx}
+  % \end{table*}
   
+  
+
 \subsection{Lock Free Data Structures}
 
 
@@ -328,6 +351,12 @@ architecture closely. Herd does not apply greatly to disaggregated contexts as
 is fully assumes server side CPUs. However, it's one sided benchmarks are valid
 and valuable for disaggregated designers.
 
+\sg{Herd is the closest an RDMA key value store gets to being an influence on
+disaggregation without crossing the line. I think it might not belong here,
+however it takes every other aspect of RDMA performance and remote memory into
+consideration. I can imagine a HERD built with NIC's that would meet the
+disaggregated model easily.}
+
 \textbf{Cell~\cite{cell}} Investigates the optimal interplay of async client
 side requests and server side processing by developing a novel B-Tree structure.
 In cell clients perform reads, while the server does the work to process writes
@@ -348,6 +377,17 @@ Client side traversals of the B-Tree are poor, taking up to 5 RTT to complete
 the traversal of the meganodes. They justify their choice by stating that RDMA
 is fast. These operations create significant latency spikes for operations, and
 inflate bandwidth costs.
+
+Cell makes use of opportunistic reads, that is that it assumes that the state of
+the tree is readable when reads are attempted, if the server has some subset of
+the tree locked during read traversal, the client fails and then retries. This
+is true when version, and CRC values are invalid. Cell is not entirely
+opportunistic or lock free as on the sever side locks are attained and
+serialized in the traditional way. However the techniques of opportunistic
+concurrency, i.e. ensuring that each operation keeps the structure in a
+consistent state are used by Cell.
+
+
 
 %\textbf{fasst~\cite{faast}[\textcolor{red}{x}]} Fasst is Anujs first cut at RPC.
 %Similar to ERPC below, FASST argues heavily for the use of two sided verbs to
