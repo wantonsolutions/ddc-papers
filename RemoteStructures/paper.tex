@@ -39,6 +39,8 @@
 \usetikzlibrary{calc,positioning}
 \usepackage{lipsum,adjustbox}
 
+\usepackage{arydshln}
+
 %\usepackage{tikz}
 %\usepackage{decorations.pathmorphing}
 %\usepackage{assymb}
@@ -60,6 +62,16 @@
 \newtheorem{example}{\bf{Example}}
 \newtheorem{notation}{\bf{Notation}}
 \newtheorem{fact}{\bf{Fact}}
+
+\usepackage{tikz}
+\newcommand*\nullcirc[1][1ex]{\tikz\draw (0,0) circle (3pt);} 
+\newcommand*\halfcirc[1][1ex]{%
+  \begin{tikzpicture}
+  \draw[fill] (0,0)-- (90:3pt) arc (90:270:3pt) -- cycle ;
+  \draw (0,0) circle (3pt);
+  \end{tikzpicture}}
+\newcommand*\fullcirc[1][1ex]{\tikz\fill (0,0) circle (3pt);} 
+
 
 \usepackage{listings}
 %%\usepackage{listings-golang}

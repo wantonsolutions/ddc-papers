@@ -474,7 +474,7 @@ publisher = {USENIX Association},
 month = jul,
 }
 
-@inproceedings {write-optimized-hash,
+@inproceedings {write-op-hash,
 author = {Pengfei Zuo and Yu Hua and Jie Wu},
 title = {{Write-Optimized} and {High-Performance} Hashing Index Scheme for Persistent Memory},
 booktitle = {13th USENIX Symposium on Operating Systems Design and Implementation (OSDI 18)},
@@ -875,3 +875,72 @@ url = {https://www.usenix.org/conference/osdi20/presentation/wang},
 publisher = {USENIX Association},
 month = nov,
 }
+
+@misc{yelam2022systems,
+      title={Systems for Memory Disaggregation: Challenges and Opportunities}, 
+      author={Anil Yelam},
+      year={2022},
+      eprint={2202.02223},
+      archivePrefix={arXiv},
+      primaryClass={cs.DC}
+}
+
+
+@inproceedings{linked-list-cas,
+author = {Harris, Timothy L.},
+title = {A Pragmatic Implementation of Non-Blocking Linked-Lists},
+year = {2001},
+isbn = {3540426051},
+publisher = {Springer-Verlag},
+address = {Berlin, Heidelberg},
+abstract = {We present a new non-blocking implementation of concurrent linked-lists supporting linearizable insertion and deletion operations. The new algorithm provides substantial benefits over previous schemes: it is conceptually simpler and our prototype operates substantially faster.},
+booktitle = {Proceedings of the 15th International Conference on Distributed Computing},
+pages = {300–314},
+numpages = {15},
+series = {DISC '01}
+}
+
+
+@inproceedings{blade-server,
+author = {Lim, Kevin and Chang, Jichuan and Mudge, Trevor and Ranganathan, Parthasarathy and Reinhardt, Steven K. and Wenisch, Thomas F.},
+title = {Disaggregated Memory for Expansion and Sharing in Blade Servers},
+year = {2009},
+isbn = {9781605585260},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/1555754.1555789},
+doi = {10.1145/1555754.1555789},
+abstract = {Analysis of technology and application trends reveals a growing imbalance in the peak compute-to-memory-capacity ratio for future servers. At the same time, the fraction contributed by memory systems to total datacenter costs and power consumption during typical usage is increasing. In response to these trends, this paper re-examines traditional compute-memory co-location on a single system and details the design of a new general-purpose architectural building block-a memory blade-that allows memory to be "disaggregated" across a system ensemble. This remote memory blade can be used for memory capacity expansion to improve performance and for sharing memory across servers to reduce provisioning and power costs. We use this memory blade building block to propose two new system architecture solutions-(1) page-swapped remote memory at the virtualization layer, and (2) block-access remote memory with support in the coherence hardware-that enable transparent memory expansion and sharing on commodity-based systems. Using simulations of a mix of enterprise benchmarks supplemented with traces from live datacenters, we demonstrate that memory disaggregation can provide substantial performance benefits (on average 10X) in memory constrained environments, while the sharing enabled by our solutions can improve performance-per-dollar by up to 57% when optimizing memory provisioning across multiple servers.},
+booktitle = {Proceedings of the 36th Annual International Symposium on Computer Architecture},
+pages = {267–278},
+numpages = {12},
+keywords = {disaggregated memory, power and cost efficiencies, memory blades, memory capacity expansion},
+location = {Austin, TX, USA},
+series = {ISCA '09}
+}
+
+@inproceedings {decible,
+author = {Mihir Nanavati and Jake Wires and Andrew Warfield},
+title = {Decibel: Isolation and Sharing in Disaggregated {Rack-Scale} Storage},
+booktitle = {14th USENIX Symposium on Networked Systems Design and Implementation (NSDI 17)},
+year = {2017},
+isbn = {978-1-931971-37-9},
+address = {Boston, MA},
+pages = {17--33},
+url = {https://www.usenix.org/conference/nsdi17/technical-sessions/presentation/nanavati},
+publisher = {USENIX Association},
+month = mar,
+}
+
+@inproceedings {cell,
+author = {Christopher Mitchell and Kate Montgomery and Lamont Nelson and Siddhartha Sen and Jinyang Li},
+title = {Balancing {CPU} and Network in the Cell Distributed {B-Tree} Store},
+booktitle = {2016 USENIX Annual Technical Conference (USENIX ATC 16)},
+year = {2016},
+isbn = {978-1-931971-30-0},
+address = {Denver, CO},
+pages = {451--464},
+url = {https://www.usenix.org/conference/atc16/technical-sessions/presentation/mitchell},
+publisher = {USENIX Association},
+month = jun,
+}  

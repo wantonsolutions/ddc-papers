@@ -84,21 +84,55 @@ difference between disaggregation and prior system architectures.
 
 \section{What this paper is not}
 
-This paper is not an overview of existing disaggregated systems, it's a focus on
-the data structures which allow for efficient use of remote memory. Many systems
-exist which match the disaggregated model none of which will be covered in
-detail. An overview of many of the dissagregated systems which are not covered
-here can be found in Yelam et.al~\cite{how-to-build}.
+This paper is focused on data structures for disaggregation, it is not a systems
+summary.  Many projects exist which are designed for the disaggregated model,
+none of which will be covered in detail. An overview of the state of the state
+of the art systems circa 2022 can be found in Yelam
+et.al~\cite{yelam2022systems}.
 
-Firstly this is not a paper covering remote paging or caching
-systems~\cite{fastswap,kona,infiniswap,leap,legoos}. Each of these has a local
-data structure for managing a virtual memory interface.  However none share data
-across processes so their only performance effect from far memory is the size of
-their cache, paging policy, and round trip time. As such each system is
-primarily constrained by the access pattern of their programs. We consider
-locality optimization to be a single facet of the design space for
+To be explicit about scope this is not a paper covering remote paging or caching
+systems~\cite{fastswap,kona,infiniswap,leap,legoos}. These systems design their
+virtual memory interfaces to incorporate far memory. Each takes into account the
+ratio of local to remote memory, and takes measures to design their swapping
+systems with the cost of far memory in mind for performance purposes.  However
+none share data across processes so their only performance effect from far
+memory is the size of their cache, paging policy, and round trip cost. As such
+each system is primarily constrained by the access pattern of their programs. We
+consider locality optimization to be a single facet of the design space for
 disaggregation and address it more fundamentally in
-Section~\ref{sec:techniques}.
+Section~\ref{sec:techniques}. We reference systems only in terms of their data
+structure design.
+
+This paper is not theory. All data structures investigated within have been
+implemented using real hardware. While some papers referenced may be theoretical
+in contribution~\cite{flat-combine,hopscotch,linked-list-cas}, they must be
+backed by a concrete implementation. As such are scope is limited to data
+structures which can be implemented using instructions available on commodity
+hardware.
+
+\section{Paper Goals}
+
+The future of resource disaggregation is unclear. Although problems such as the
+memory wall have been cited for over a decade~\cite{blade-server}, and SSD \&
+HDD disaggregation is now commonplace in data centers~\cite{decible}, main
+memory disaggregation still has significant obstacle to overcome before it
+becomes a practical architecture. Case and point, microservice like
+architectures allow easy application scaling across address spaces albeit at a
+higher than proposed cost to disaggregation, and disks have an access latency
+now significantly higher than the network latency to reach them. Local main
+memory is still 20x faster than remote memory. This is no small latency factor
+for engineers and scientists to contend against, as such our goal is to identify
+disaggregated memories growing pains, and design victories, while highlighting
+future challenges and techniques from the past which may prove useful in the
+future.
+
+The following sections will survey papers from the different catagories
+described (lock free data structures, NUMA, Key Value Stores, Disaggregated Data
+Structures) which either pioneered techniques or make use of an ensemble of
+them. In each case we will analyse the effectiveness of the technique and
+discuss it's generalizability. Finally we will discuss the implication of each
+technique individually and ~\todo{Discuss a straw man disaggregated system which
+makes use of all technqiues}
 
 % Disaggregated algorithms have the trait that they are one sided, and computed
 % over a network.  All shared memory algorithms are one sided, but few are
@@ -115,6 +149,51 @@ Section~\ref{sec:techniques}.
 % techniques are applicable. NUMA which defers to a local core for remote requests
 % does not apply here.
 
+\section{The Disaggregated Model}
+
+\todo{system diagram} 
+\\
+Disaggregation is a general term used for the separation
+of resources by a network. The composition and topology of the network plays a
+large role in how a disaggregated computer will manifest. The disaggregated
+model we consider most prevalent is that of the rack scale computer. In the rack
+scale design servers in a rack have a resource role - compute, memory, storage,
+accelerator. Each server is connected via a fast network i.e. 100-400Gbps
+ethernet or above. The topology of the rack is up for debate, however many
+suggest that each server is interconnected with a traditional TOR, or with a
+special purpose middlebox for memory traffic~\cite{disandapp}. Proposals for
+other topologies such as torus exist, however we scope ourselves to the prior
+configuration. In the rack scale model we consider all memory traffic in a rack
+transits a centralized switch, and all the traffic for an individual machine
+flows through that machines NIC.
+
+\begin{table*}[t]
+    \centering
+    \begin{tabular}{ c | c | c | c | c | c | c | c | c }
+        & \shortstack{read \\ inflation} & \shortstack{relaxed  \\ layout} & \shortstack{pre-\\computation} & \shortstack{optimistic \\ concurrency} & \shortstack{metadata \\ caching} & \shortstack{client \\ coalescing} & \shortstack{write \\ amplification} & \shortstack{self \\ verifing}  \\ \hline
+                                                                %N          %R          %P          %O          %M          %C          %W          %S
+      pilaf~\cite{pilaf}                                      & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \fullcirc \\ \hdashline
+      farm~\cite{farm}                                        & \fullcirc & \nullcirc & \nullcirc & \fullcirc & \fullcirc & \fullcirc & \nullcirc & \nullcirc \\ \hdashline
+      herd~\cite{herd}                                        & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc \\ \hdashline
+      cell~\cite{cell}                                        & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \fullcirc & \nullcirc & \nullcirc & \fullcirc \\ \hdashline
+      % fasst~\cite{faast}                                      & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc \\ \hdashline
+      % erpc~\cite{erpc}                                        & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc \\ \hdashline
+      storm~\cite{storm}                                      &  &  &  &  &  &  &  &  \\ \hdashline
+      1RMA~\cite{1rma}                                        &  &  &  &  &  &  &  &  \\ \hline
+      \shortstack{Flat \\ Combining}~\cite{flat-combine}      &  &  &  &  &  &  &  &  \\ \hdashline
+      \shortstack{Hopscotch \\ Hash}~\cite{hopscotch}         &  &  &  &  &  &  &  &  \\ \hline
+      \shortstack{Blackbox \\ NUMA}~\cite{black-box-numa}     &  &  &  &  &  &  &  &  \\ \hline \hline
+      Clover~\cite{clover}                                    &  &  &  &  &  &  &  &  \\ \hline
+      \shortstack{Concious \\Hashing}~\cite{write-op-hash}    &  &  &  &  &  &  &  &  \\ \hline
+      Sherman~\cite{Sherman}   & & & & & & & \\ \hline \hline
+      Mind~\cite{mind}   & & & & & & & \\ \hline
+
+
+    \end{tabular}
+    \caption{Blabla}
+    \label{tab:1}
+  \end{table*}
+  
 \subsection{Lock Free Data Structures}
 
 
@@ -178,19 +257,21 @@ which requires a round trip for each resolved pointer.
 
 \subsection{key value stores} 
 %% %
-The closest space to resource disaggregation is RDMA accelerated key value
-stores. In this discipline the expectations of performance have been pushed to
-the absolute limit with many projects approaching the latency and throughput of
-raw RDMA. These works make careful selection of data structures for efficient
-integration with RDMA~\cite{hopscotch,cuckoo}, and select communication
-protocols for RDMA which promote the highest performance the current generation
-of hardware can offer~\cite{herd,storm}. The direct applicability of prior
-KV-store work and disaggregation end when two sided approaches like RPC or two
-sided RDMA are utilized for serialization. For example, a common paradigms is to
-have the reads be performed async using one sided operations, while the writes
-are serialized by a two sided operation~\cite{pilaf}. This allows a CPU to
-perform the locking and execute multi step critical sections, such as pointer
-chasing, with low latency.
+The closest space to practical memory disaggregation is RDMA accelerated key
+value stores. In this discipline the expectations of performance have been
+pushed to the absolute limit with many projects approaching the latency and
+throughput of raw RDMA. A typical aim is to reduce server side CPU utilization
+which demands the use of one sided operations. These works make careful
+selection of data structures for efficient integration with
+RDMA~\cite{hopscotch,cuckoo}, and select communication protocols for RDMA which
+promote the highest performance the current generation of hardware can
+offer~\cite{herd,storm}. The direct applicability of prior KV-store work and
+disaggregation end when two sided approaches like RPC or two sided RDMA are
+utilized for serialization. For example, a common paradigm is to have the reads
+be performed async using one sided operations, while the writes are serialized
+by a two sided operation~\cite{pilaf}. This allows a CPU to perform the locking
+and execute multi step critical sections, such as pointer chasing, with low
+latency.
 
 \textbf{Pilaf~\cite{pilaf}} uses just such a mixture of one and two sided RDMA
 operations. The key insight is that if a data structure is architects carefully,
@@ -205,19 +286,40 @@ does not extend to the disaggregated context directly as writes are handled by a
 server side cpu which serializes requests, and processes CRC's. Their rational
 is that client side atomic operations are slow, and brittle. 
 
-\textbf{Farm~\cite{farm}}, similar to pilaf allows for async RDMA reads, and
-uses one sided writes. However the writes are made to a buffer which is polled
-by a server side CPU and later processed as a transaction. This technique in
-some ways is a disaggregation applicable approach. At least the writes side of
-the rx wheel uses disaggregated techniques. However as half of it's structures
-manipulation requires server side processing it is not directly applicable. The
-hash table Farm uses is applicable. They use Hopscotch Hashing~\cite{hopscotch}
-which places data near keys. This allows a single read to get the values it
-needs with a single round trip (as opposed to cuckoo hashing). This pushes the
-complexity to the client. To my knowledge this if the first instance of pushing
-read complexity to the client in any paper.
 
-\textbf{Herd~\cite{herd}} Herd improves upon both Farm and pilaf by looking
+\todo{Write more about farm as it ticks a lot of the boxes}
+%%
+\textbf{Farm~\cite{farm}}, similar to pilaf allows for async RDMA reads, and
+uses one sided writes. In this way FARM makes use of an entirely disaggregated
+applicable algorithm with respect to it's RDMA circle buffers. 
+%%
+However the writes are made to a buffer which is polled by a server side CPU and
+later processed as a transaction. This technique in some ways is a
+disaggregation applicable approach. At least the writes side of the rx wheel
+uses disaggregated techniques. Senders cache a local copy of the buffers head
+location, in the disaggregated world this pointer would need to be updated in a
+one sided fashion, in FARM the receiver occasionally sends the new pointer
+location back to the sender when more space has been freed up.
+%%
+Farm multiplexes queue pairs to reduce the strain on client side NIC memory.
+While this is not an explicit use of flat combining it does serialize writes on
+the client as an optimization.
+%%
+Farm makes use of lock free operations by applying version numbers to each
+transaction item. When async reads come in, they check the version number of the
+data, if the version is old, they retry with a random backoff. Writers apply CAS
+operations locally to the version numbers asynchronously from the readers.
+%%
+However as half of it's structures manipulation requires server side processing
+it is not directly applicable. The hash table Farm uses is applicable. They use
+Hopscotch Hashing~\cite{hopscotch} which places data near keys. This allows a
+single read to get the values it needs with a single round trip (as opposed to
+cuckoo hashing). This pushes the complexity to the client. To my knowledge this
+if the first instance of pushing read complexity to the client in any paper by
+inflating the size of the read.
+
+
+\textbf{Herd~\cite{herd}} improves upon both FaRM and Pilaf in terms of raw performance by looking
 closely at the RDMA specific behavior of KV stores. It considers the hash
 algorithm carefully to bound the number of one sided reads. And uses RDMA writes
 from server, rather than two sided operations to improve latency. Herds biggest
@@ -226,18 +328,39 @@ architecture closely. Herd does not apply greatly to disaggregated contexts as
 is fully assumes server side CPUs. However, it's one sided benchmarks are valid
 and valuable for disaggregated designers.
 
-\textbf{fasst~\cite{faast}[\textcolor{red}{x}]} Fasst is Anujs first cut at RPC.
-Similar to ERPC below, FASST argues heavily for the use of two sided verbs to
-reduce the cost of reading. While this makes sense it's not super applicable.
-Many of the observations are around batching, RDMA reliability, and scheduling.
+\textbf{Cell~\cite{cell}} Investigates the optimal interplay of async client
+side requests and server side processing by developing a novel B-Tree structure.
+In cell clients perform reads, while the server does the work to process writes
+similar to Pilaf.
 
-\textbf{erpc~\cite{erpc}[\textcolor{red}{x}]} Erpc focues on common case RPC
-operations, aiming to reduce drops, avoid pfc, and achieve 100MOPS. This is
-almost entirely RDMA optimization. They note that using connections, the
-scalability suffers. Around 4000 connections the read rate starts to drop.
-Unfortunatly many of the implements for scaling such ad the RPC credit system
-rely on server side participation. ERPC is therefore not a good source of info
-for this RE.
+Servers carefully apply locks to internal B-tree nodes to ensure that concurrent
+client traversals of the tree are always valid. Clients cache the trees upper
+level metadata including key ranges of meganodes (small partitions of the
+btree), and the depth of the trees.
+
+Keys are protected in two ways, firstly ranges are projected by version numbers.
+The version numbers ensure that the root node is the same as the version applied
+to the write, two version updates are appled per write so that a concurrent
+client can detect a partially complete write. Additionally keys are projected by
+a CRC the same is in Pilaf to prevent read/write tearing.
+
+Client side traversals of the B-Tree are poor, taking up to 5 RTT to complete
+the traversal of the meganodes. They justify their choice by stating that RDMA
+is fast. These operations create significant latency spikes for operations, and
+inflate bandwidth costs.
+
+%\textbf{fasst~\cite{faast}[\textcolor{red}{x}]} Fasst is Anujs first cut at RPC.
+%Similar to ERPC below, FASST argues heavily for the use of two sided verbs to
+%reduce the cost of reading. While this makes sense it's not super applicable.
+%Many of the observations are around batching, RDMA reliability, and scheduling.
+
+%\textbf{erpc~\cite{erpc}[\textcolor{red}{x}]} Erpc focues on common case RPC
+%operations, aiming to reduce drops, avoid pfc, and achieve 100MOPS. This is
+%almost entirely RDMA optimization. They note that using connections, the
+%scalability suffers. Around 4000 connections the read rate starts to drop.
+%Unfortunatly many of the implements for scaling such ad the RPC credit system
+%rely on server side participation. ERPC is therefore not a good source of info
+%for this RE.
 
 
 \textbf{storm~\cite{storm}} Storm makes the argument that modern NICs have the
@@ -261,28 +384,18 @@ wanted we could interpose on the application level info whenever we wanted.
 \section{Remote Memory Techniques}
 \label{sec:techniques}
 
-The following are some far/disaggregated memory algorithm design techniques and
-common issues.
+There is no dragon more fierce in the cave of memory disaggregation than
+latency. The most focus and work must done in this space to reduce it's cost
+even at the high price of other resources such as memory and network bandwidth.
+A common trait of latency reducing techniques is that they trade off some degree
+of precision for speed. Perhaps the biggest latency cost in remote memory is the
+round trip time~\cite{design-far-memory-struct}, ideally all operations for
+remote memory can complete in $O(1)$ complexity. This is very difficult for
+pointer based data structures as each pointer resolution requires a round trip.
+The approaches described here typically aim to reduce a round trip by caching
+relevant information, laying out data structures so that large reads can capture
+the necessary information, 
 
-\subsection{Steering} 
-\label{sec:steering}
-%
-centralized in network compute can be used to steer and modify
-requests when data races and conflicts occur. The downside is that this takes an
-extra bit of in network processing, but it gets a big speed up. In order for a
-middlebox to make the correct steering decision it requires all of the
-information necessary to preserve the data invariants of the structure it is
-steering into. This limitation demands that the data structure itself be well
-conditioned for this property, and be able to deal with potential variance in
-its structure.
-
-A potential use for steering is also to perform in place updates while allowing
-for reads. For example imagine updating a range on a data structure [x,y] the
-first step of the operation could be to lock the region, then copy [x,y] to a
-new location [x',y']. During the update reads are steered to the new [x',y'] and
-the update is made in place on the old [x,y]. When the operation is complete the
-steering stops and the update is atomically visible. This could be useful for
-non-pointer based structures like hopscotch hashes~\cite{hopscotch}.
 
 \subsection{Read Size} 
 \label{sec:readsize}
@@ -314,6 +427,19 @@ a scaled up read is appropriate to gain all meta, and data for the structure.
 Perhaps more data structures, designed to be concurrent and cache optimized will
 be good candidates for Disaggregated Memory.
 
+\subsection{Relaxed Data Layout} Datastructures with struct semantics such as
+ordering are difficult to maintain under contention as potentially many elements
+must be read, and organized to achieve an operation such as an insert. For
+example Sherman~\cite{sherman} uses relaxed ordering in it's B-tree buckets so
+that writes can succeed more frequently. Similarly
+One-Sided-Hash~\cite{one-sided-hash} uses associative cashing and power of two
+in order to allow for multiple write locations. By relaxing the structural
+invariants higher write performance is achieved. However this comes at the cost
+of read inflation~\ref{sec:readsize} as the correct results must be composed
+from an unorganized read. In the case of sherman, relaxing the structure has the
+effect of reducing write amplification.
+
+
 \subsection{Write amplification mitigation}
 \label{sec:write-amplification}
 %%
@@ -326,17 +452,6 @@ grow arbitrarily. Another technique is to make each entry have it's own checksum
 for it's integrity, and to only update the bucket checksum when all items become
 static.
 
-\subsection{Relaxed Data Layout} Datastructures with struct semantics such as
-ordering are difficult to maintain under contention as potentially many elements
-must be read, and organized to achieve an operation such as an insert. For
-example Sherman~\cite{sherman} uses relaxed ordering in it's B-tree buckets so
-that writes can succeed more frequently. Similarly
-One-Sided-Hash~\cite{one-sided-hash} uses associative cashing and power of two
-in order to allow for multiple write locations. By relaxing the structural
-invariants higher write performance is achieved. However this comes at the cost
-of read inflation~\ref{sec:readsize} as the correct results must be composed
-from an unorganized read. In the case of sherman, relaxing the structure has the
-effect of reducing write amplification.
 
 \subsection{Precomputation} Some optimization are easy with preoccupation. Consider
 Clio's one level page table~\cite{clio}. Normally a walk would be required, however they
@@ -374,7 +489,7 @@ for cache coherence protocols, while Mind~\cite{mind} actually implements one.
 Swordbox actually removes the need for the cache coherence by fixing the missing
 data in network.
 
-\subsection{Client Side Optimizations}
+\subsection{Client Side Coalescing}
 
 If clients to remote memory are colocated on the same machine local memory can
 be used to consolidate conflicts. For example, designating a single core to make
@@ -401,6 +516,28 @@ dangers with caching is that the important caching data must be determined
 somehow. Traditional caching techniques can lead to massive bandwidth inflation.
 The second advantage of caching in network is centralization which can reduce
 the communication between hosts.
+
+
+\subsection{Network Serialization} 
+\label{sec:net_ser}
+%
+centralized in network compute can be used to steer and modify
+requests when data races and conflicts occur. The downside is that this takes an
+extra bit of in network processing, but it gets a big speed up. In order for a
+middlebox to make the correct steering decision it requires all of the
+information necessary to preserve the data invariants of the structure it is
+steering into. This limitation demands that the data structure itself be well
+conditioned for this property, and be able to deal with potential variance in
+its structure.
+
+A potential use for steering is also to perform in place updates while allowing
+for reads. For example imagine updating a range on a data structure [x,y] the
+first step of the operation could be to lock the region, then copy [x,y] to a
+new location [x',y']. During the update reads are steered to the new [x',y'] and
+the update is made in place on the old [x,y]. When the operation is complete the
+steering stops and the update is atomically visible. This could be useful for
+non-pointer based structures like hopscotch hashes~\cite{hopscotch}.
+
 
 
 \subsubsection{MIND~\cite{mind}}
@@ -577,7 +714,7 @@ link lists by caching the location of the tail of the list.
 
 \section{notes}
 
-The papers~\cite{one-sided-hash} and ~\cite{write-optimized-hash} are almost
+The papers~\cite{one-sided-hash} and ~\cite{write-op-hash} are almost
 identical. It's the same author, I'm just noting that the change between NUMA
 and Far memory could use this as a case study.
 
