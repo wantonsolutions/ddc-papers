@@ -180,7 +180,7 @@ flows through that machines NIC.
 \multirow{3}{*}{\rotatebox[origin=c]{90}{\shortstack{Multicore \\ NUMA}}} & \shortstack{Flat \\ Combining}~\cite{flat-combine}   & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \fullcirc & \nullcirc \\ \cdashline{2-9}
          & \shortstack{Hopscotch \\ Hash}~\cite{hopscotch}         & \fullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc \\ \cdashline{2-9}
 %\multirow{1}{*}{\rotatebox[origin=c]{0}{\shortstack{NUMA}}} & \shortstack{Blackbox \\ NUMA}~\cite{black-box-numa}     &  &  &  &  &  &  &  &  \\ \hline \hline %\cline{2-10} \cline{2-10}
-        & \shortstack{Blackbox \\ NUMA}~\cite{black-box-numa}     &  &  &  &  &  &  &  \\ \hline %\cline{2-10} \cline{2-10}
+        & \shortstack{Blackbox \\ NUMA}~\cite{black-box-numa}     & \halfcirc & \nullcirc & \nullcirc & \fullcirc & \fullcirc & \fullcirc & \nullcirc \\ \hline %\cline{2-10} \cline{2-10}
 \multirow{6}{*}{\rotatebox[origin=c]{90}{\shortstack{RDMA \\ Key-Value}}} & pilaf~\cite{pilaf}                                      & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \fullcirc \\ \cdashline{2-9}
          & farm~\cite{farm}                                        & \fullcirc & \nullcirc & \nullcirc & \fullcirc & \fullcirc & \fullcirc  & \nullcirc \\ \cdashline{2-9}
          & herd~\cite{herd}                                        & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc  & \nullcirc \\ \cdashline{2-9}
@@ -204,27 +204,8 @@ flows through that machines NIC.
     system meets the qualification in spirit but not explicitly, and \nullcirc
     when the technique is absent.}
     
-    \label{tab:1} \end{table*}
-    %\end{table}
-
-
-  % \begin{table*}[h]
-  % \centering
-  % %     \begin{adjustbox}{width=\textwidth,center}
-  %     % \begin{adjustbox}{center}
-  %         \begin{tabular}{lll}
-  %             \hline
-  %             \multirow{4}{*}{\rotatebox[origin=c]{90}{XXX}} & \multicolumn{1}{l}{XXX} & \multicolumn{1}{l}{XXX} \\\cline{2-3}
-  %                                  & \multicolumn{1}{l}{XXX} & \multicolumn{1}{l}{XXX} \\\cline{2-3}
-  %                                  & \multicolumn{1}{l}{XXX} & \multicolumn{1}{l}{XXX} \\\cline{2-3}
-  %                                  & \multicolumn{1}{l}{XXX} & \multicolumn{1}{l}{XXX} \\\hline
-  %             \ttfamily xxx & \ttfamily xxx & \ttfamily xxx \\                \hline
-  %         \end{tabular}
-  % %     \end{adjustbox}
-  % %     \vspace{ - 05 mm}
-  %     \caption{xxx}
-  %     \label{tab:xxx}
-  % \end{table*}
+    \label{tab:1}
+\end{table*}
   
   
 \section{Influential Prior Work}
@@ -317,7 +298,38 @@ advantage of~\cite{sherman}.
 \todo{this portion}
 
 \textbf{Blackbox Numa~\cite{black-box-numa}}
-\todo{this portion}
+
+Black-box Numa proposes node replication, a universal construction for NUMA
+architectures. Node replication is a generic formula for transforming any data
+structure into a concurrent NUMA aware data structure. The transformation uses a
+shared operational log which provides linearizability for all operations to the
+shared structure. When process runs an operation, for example an insert into a
+tree, the arguments of the operation are appended to the shared log. The log of
+operations can then be replayed by any processes to obtain an up to date version
+of the structure.
+
+Node replication makes use of many optimizations, as the name suggests, the
+shared log is replicated on each node. Local copies of the shared structure are
+used for queries and to prepare for future operations. Processes on a node are
+grouped together, and for performance operations are coalesced and only issued
+by a node leader determined by the flat combining algorithm~\cite{flat-combine}.
+The shared log is built by appending to it's tail using CAS operations from the
+leader of each node. If the leader is behind is scans the list, and attempts to
+append only once it's found the tail.
+
+Node Replication takes into account many design considerations which are present
+in the disaggregated context. First it assumes a share, and contested region of
+memory. Second it assumes that this memory is expensive to access, and that
+obtaining exclusive locks is cumbersome. Finally it makes locality aware
+decisions when possible for performance. Where the parallel breaks down is that
+reads are considered to be essentially free, which is not the case when they
+incur a round trip. However this is likely because node replications reads are
+bounded cache line size. Due to the linear layout of its log, if it were ported
+to far memory a single large read could capture many log entries reducing the
+round trip cost.  Another difference is that atomic operations like CAS are
+considered cheap, which is not necessarily the case in RDMA
+deployments~\cite{design-guideline}, see Section~\ref{sec:pitfalls} for more
+details. 
 
 
 \subsection{RDMA key-value stores} 
@@ -805,7 +817,8 @@ the update is made in place on the old [x,y]. When the operation is complete the
 steering stops and the update is atomically visible. This could be useful for
 non-pointer based structures like hopscotch hashes~\cite{hopscotch}.
 
-\section{Remote memory traps}
+\section{Remote memory pitfalls}
+\label{sec:pitfalls}
 
 \textbf{Centralized Serialization} My approach uses a centralized serialization
 point to alleviate coordination. However it has been shown that doing all the
@@ -927,6 +940,22 @@ ideal. As an example changing the location of a read or write, changing the side
 of a read or write, or setting a value in the packets payload. As demonstrated
 in SwordBox~\cite{Grant2021InContRes} contention can be avoided in append only
 link lists by caching the location of the tail of the list.
+
+
+Consider how Sherman might be improved by small amounts of application specific
+caching on a middlebox. Firstly, Shermans search step has two potential
+destinations due to their power of two load balancing. This demands the use of
+two packets for each search, an operation required in each operation. A
+middlebox can easily reduce this requirement to one packet per read by keeping a
+single bit per key which denotes which hash the key used. When the packet
+arrives the switch performs the hash, and if the packet is sent to the wrong
+destination it steers it to the correct one. As this only requires one bit per
+key and cuts the packets per second by half, it would likely be a beneficial
+optimization. Further each read requires two round trips. This could be reduced
+to one for hot keys. The middlebox could maintain a cache of hot keys (top n),
+when a search packet is found, if the key gets a hit, the read is transformed in
+location and size to the destination address of the true read. For hot keys this
+requires 48 bits per key given Shermans addressing scheme.
 
 \begin{figure}
     \includegraphics[width=0.45\textwidth]{fig/middlebox_model.png}
