@@ -118,23 +118,25 @@ The future of resource disaggregation is unclear. Although problems such as the
 memory wall have been cited for over a decade~\cite{blade-server}, and SSD \&
 HDD disaggregation is now commonplace in data centers~\cite{decible}, main
 memory disaggregation still has significant obstacle to overcome before it
-becomes a practical architecture. Case and point, microservice like
-architectures allow easy application scaling across address spaces albeit at a
-higher than proposed cost to disaggregation, and disks have an access latency
-now significantly higher than the network latency to reach them. Local main
-memory is still 20x faster than remote memory. This is no small latency factor
-for engineers and scientists to contend against, as such our goal is to identify
-disaggregated memories growing pains, and design victories, while highlighting
-future challenges and techniques from the past which may prove useful in the
-future.
+becomes a practical architecture.  Local main memory is still 20x faster than
+remote memory. This is no small latency factor for engineers and scientists to
+contend against. Our goal is to first identify the ideas that enable practical
+disaggregation today. To do so we provide a brief survey of lock free data
+structures, multicore and NUMA, RDMA Key Value Stores with the context of
+disaggregation in mind and make note the the techniques used to enable
+scalability, and reduced latency.
 
-The following sections will survey papers from the different catagories
-described: lock free data structures, multicore and NUMA, RDMA Key Value Stores,
-Disaggregated Data Structures) which either pioneered techniques or make use of
-an ensemble of them. In each case we will analyse the effectiveness of the
-technique and discuss it's generalizability. Finally we will discuss the
-implication of each technique individually and ~\todo{Discuss a straw man
-disaggregated system which makes use of all technqiues}
+Using this information we break down a set of techniques and describe them more
+generally before applying a more in depth analysis to existing disaggregated
+data structure centric systems. In cases where systems forgot these techniques
+we comment on potential alterations which may improve performance or
+scalability.
+
+We close with discussion topics such as additional considerations for resource
+disaggregation, the potential pitfalls of far memory design, and the potential
+role of programable networking hardware in the future of disaggregation.
+
+
 
 % Disaggregated algorithms have the trait that they are one sided, and computed
 % over a network.  All shared memory algorithms are one sided, but few are
@@ -169,7 +171,7 @@ configuration. In the rack scale model we consider all memory traffic in a rack
 transits a centralized switch, and all the traffic for an individual machine
 flows through that machines NIC.
 
-\begin{table*}[t]
+\begin{table*}[h]
 %\begin{table}[h]
     \centering
     \begin{tabular}{ c | c | c | c | c | c | c | c | c }
@@ -285,7 +287,7 @@ and they are not clear cut candidates for porting to the disaggregated setting.
 
 Various read concurrent, and lock free implementations of B-Tree's have been
 developed over the past decade~\cite{read-concur-btree,lock-free-btree}.
-
+\todo{finish btree}
 
 \subsection{Multicore and NUMA}
 
@@ -307,32 +309,14 @@ combining the requests of local threads, a benefit that Sherman takes complete
 advantage of~\cite{sherman}.
 
 
-\textbf{Partitioned and replicated state}
+\textbf{Hopscotch Hashing~\cite{hopscotch}}
+\todo{this portion}
 
-Shared state is a serious bottleneck for highly parallel systems especially when
-the cost of accessing a resource is high. One common pattern is to simply
-partition resources so that no sharing is required. For instance systems like
-LegoOS~\cite{legoos} and FastSwap~\cite{fastswap} don't support any state
-sharing between processes. In multithreaded programs sharing is often an
-unavoidable consequence of the work being done. For higher performance processes
-can replicate parts of the shared structure and cache the portion locally. In
-the case where there is little or no contention this allows processes to make
-forward progress without accessing a shared resource. In the disaggregated
-setting this is particular important as the cost of accessing remote memory is
-particularly high. For instance Clover~\cite{clover} locally caches the metadata
-of it's remote database to perform opportunistic writes, and Black Box
-Numa~\cite{black-box-numa} maintains a replicated log of every operation. Of
-course, when conflicts do occur the benefits of replicating state diminish and
-simply become a memory overhead. The choice of replication strategy, and degree
-of replication which will result in the highest cost to performance boost is
-workload dependent.
-
+\textbf{Blackbox Numa~\cite{black-box-numa}}
 \todo{this portion}
 
 
-
 \subsection{RDMA key-value stores} 
-
 Before discussing RDMA key value stores lets consider the question \textbf{Why
 use RDMA?} There are a variety of ways to manipulate remote memory,
 GMS~\cite{gms} would suggest that we coordinate using full networking stack,
@@ -561,7 +545,25 @@ data. I.e contentious algorithms. RDMA provides verbs such as CAS and FAA for
 implementing optimistic concurrency.
 
 \subsection{Metadata Caching}
-\todo{}
+\todo{old rewrite}
+Shared state is a serious bottleneck for highly parallel systems especially when
+the cost of accessing a resource is high. One common pattern is to simply
+partition resources so that no sharing is required. For instance systems like
+LegoOS~\cite{legoos} and FastSwap~\cite{fastswap} don't support any state
+sharing between processes. In multithreaded programs sharing is often an
+unavoidable consequence of the work being done. For higher performance processes
+can replicate parts of the shared structure and cache the portion locally. In
+the case where there is little or no contention this allows processes to make
+forward progress without accessing a shared resource. In the disaggregated
+setting this is particular important as the cost of accessing remote memory is
+particularly high. For instance Clover~\cite{clover} locally caches the metadata
+of it's remote database to perform opportunistic writes, and Black Box
+Numa~\cite{black-box-numa} maintains a replicated log of every operation. Of
+course, when conflicts do occur the benefits of replicating state diminish and
+simply become a memory overhead. The choice of replication strategy, and degree
+of replication which will result in the highest cost to performance boost is
+workload dependent.
+
 
 \subsection{Client Side Coalescing}
 If clients to remote memory are colocated on the same machine local memory can
@@ -799,7 +801,7 @@ the update is made in place on the old [x,y]. When the operation is complete the
 steering stops and the update is atomically visible. This could be useful for
 non-pointer based structures like hopscotch hashes~\cite{hopscotch}.
 
-\section{Remote emory traps}
+\section{Remote memory traps}
 
 \textbf{Centralized Serialization} My approach uses a centralized serialization
 point to alleviate coordination. However it has been shown that doing all the
