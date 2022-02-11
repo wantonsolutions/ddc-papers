@@ -129,12 +129,12 @@ future challenges and techniques from the past which may prove useful in the
 future.
 
 The following sections will survey papers from the different catagories
-described (lock free data structures, NUMA, Key Value Stores, Disaggregated Data
-Structures) which either pioneered techniques or make use of an ensemble of
-them. In each case we will analyse the effectiveness of the technique and
-discuss it's generalizability. Finally we will discuss the implication of each
-technique individually and ~\todo{Discuss a straw man disaggregated system which
-makes use of all technqiues}
+described: lock free data structures, multicore and NUMA, RDMA Key Value Stores,
+Disaggregated Data Structures) which either pioneered techniques or make use of
+an ensemble of them. In each case we will analyse the effectiveness of the
+technique and discuss it's generalizability. Finally we will discuss the
+implication of each technique individually and ~\todo{Discuss a straw man
+disaggregated system which makes use of all technqiues}
 
 % Disaggregated algorithms have the trait that they are one sided, and computed
 % over a network.  All shared memory algorithms are one sided, but few are
@@ -287,7 +287,7 @@ Various read concurrent, and lock free implementations of B-Tree's have been
 developed over the past decade~\cite{read-concur-btree,lock-free-btree}.
 
 
-\subsection{NUMA}
+\subsection{Multicore and NUMA}
 
 \textbf{Flat Combining~\cite{flat-combine}} Locks and CAS are expensive in their
 own right, when highly contested the real cost of using either mechanism can
@@ -329,9 +329,12 @@ workload dependent.
 
 \todo{this portion}
 
-\subsection{RDMA}
 
-Why use RDMA? There are a variety of ways to manipulate remote memory,
+
+\subsection{RDMA key-value stores} 
+
+Before discussing RDMA key value stores lets consider the question \textbf{Why
+use RDMA?} There are a variety of ways to manipulate remote memory,
 GMS~\cite{gms} would suggest that we coordinate using full networking stack,
 however in the context of disaggregation we assume no remote CPU's to execute
 the stack. We could connect via a cache coherent interconnect such a
@@ -341,11 +344,8 @@ can execute. These verbs are similar in some respects to RPC calls, or simple
 instructions. As long as an algorithm can be described using the RDMA calls it
 can be executed on remote memory. The advantage to RDMA is that the operations
 it supports are general. The downside is that some algorithms are difficult to
-execute using one sided verbs. The prototypical example is pointer chasing
-which requires a round trip for each resolved pointer.
-
-
-\subsection{key value stores} 
+execute using one sided verbs. The prototypical example is pointer chasing which
+requires a round trip for each resolved pointer.
 %% %
 The closest space to practical memory disaggregation is RDMA accelerated key
 value stores. In this discipline the expectations of performance have been
@@ -504,7 +504,7 @@ relevant information, laying out data structures so that large reads can capture
 the necessary information, 
 
 
-\subsection{Read Size} 
+\subsection{Read Inflation} 
 \label{sec:readsize}
 %%
 One tradeoff that can be made to accelerate writes is to make
@@ -534,7 +534,7 @@ a scaled up read is appropriate to gain all meta, and data for the structure.
 Perhaps more data structures, designed to be concurrent and cache optimized will
 be good candidates for Disaggregated Memory.
 
-\subsection{Relaxed Data Layout} Datastructures with struct semantics such as
+\subsection{Relaxed Layout} Datastructures with struct semantics such as
 ordering are difficult to maintain under contention as potentially many elements
 must be read, and organized to achieve an operation such as an insert. For
 example Sherman~\cite{sherman} uses relaxed ordering in it's B-tree buckets so
@@ -545,19 +545,6 @@ invariants higher write performance is achieved. However this comes at the cost
 of read inflation~\ref{sec:readsize} as the correct results must be composed
 from an unorganized read. In the case of sherman, relaxing the structure has the
 effect of reducing write amplification.
-
-
-\subsection{Write amplification mitigation}
-\label{sec:write-amplification}
-%%
-Remote structures sometimes require write
-amplification. Consider a set of entries each guarded with a checksum for
-integrity. An update to any entry requires the recomputation of the checksum,
-and the rewrite of the continuous addresses in order to make the write in a
-single round trip. Depending on the bucket size of the entries the write can
-grow arbitrarily. Another technique is to make each entry have it's own checksum
-for it's integrity, and to only update the bucket checksum when all items become
-static.
 
 
 \subsection{Precomputation} Some optimization are easy with preoccupation. Consider
@@ -573,31 +560,10 @@ concurrency with the exception of write heavy ones which must access shared
 data. I.e contentious algorithms. RDMA provides verbs such as CAS and FAA for
 implementing optimistic concurrency.
 
-\subsection{Memory Traffic} As noted during Yizhous research exam. There is a
-potential for a massive amount of additional traffic to flow over the network
-due to accessing memory. There are various factors for this. In paging and cache
-based transparent systems~\cite{fastswap,kona,gms,infiniswap,legoos,lite}, the
-size and associativity of the local cache determines the traffic rate. Each
-traffic rate is also a function of the programs memory access policy, and the
-systems eviction policy. Shrinking a local cache could significantly inflate
-traffic. This is simultaneously true for any cache coherence protocol, or data
-structure which needs to have a locally up to date version of remote data prior
-to making an update. Memory traffic can be deflated by using traffic agnostic
-techniques such as compression, or by modifying the access policy, such as
-prefetching more or less remote memory. There is no magic bullet for this
-problem, each instance of a remote memory system will have to solve this problem
-in its own way.
-
-One aspect of caching protocols is that they explode the traffic requirements.
-On memory busses only intended for memory traffic, this may be acceptable, but
-on an RDMA network it's going to be most of the traffic. For example the
-proposals in Thinking outside of the Box~\cite{design-far-memory-struct} calls
-for cache coherence protocols, while Mind~\cite{mind} actually implements one.
-Swordbox actually removes the need for the cache coherence by fixing the missing
-data in network.
+\subsection{Metadata Caching}
+\todo{}
 
 \subsection{Client Side Coalescing}
-
 If clients to remote memory are colocated on the same machine local memory can
 be used to consolidate conflicts. For example, designating a single core to make
 requests reduces the number of conflicts at remote
@@ -615,41 +581,11 @@ example queues are simple. This can allow for cluster approximate fairness where
 each machine, or numa domain is fair with respect to itself, but not the system
 as a whole.
 
-\subsection{Caching} A variety of caching techniques reduce latency for far memory
-application. Caching allows for a two fold benefit. The first is that the
-distance between requests and the required data is less. Caching on a switch
-removes the last hop in a rack, and on a NIC removes a PCIe round trip. The
-dangers with caching is that the important caching data must be determined
-somehow. Traditional caching techniques can lead to massive bandwidth inflation.
-The second advantage of caching in network is centralization which can reduce
-the communication between hosts.
+\subsection{Self verifying}
+\todo{}
 
 
-\subsection{Network Serialization} 
-\label{sec:net_ser}
-%
-centralized in network compute can be used to steer and modify
-requests when data races and conflicts occur. The downside is that this takes an
-extra bit of in network processing, but it gets a big speed up. In order for a
-middlebox to make the correct steering decision it requires all of the
-information necessary to preserve the data invariants of the structure it is
-steering into. This limitation demands that the data structure itself be well
-conditioned for this property, and be able to deal with potential variance in
-its structure.
-
-A potential use for steering is also to perform in place updates while allowing
-for reads. For example imagine updating a range on a data structure [x,y] the
-first step of the operation could be to lock the region, then copy [x,y] to a
-new location [x',y']. During the update reads are steered to the new [x',y'] and
-the update is made in place on the old [x,y]. When the operation is complete the
-steering stops and the update is atomically visible. This could be useful for
-non-pointer based structures like hopscotch hashes~\cite{hopscotch}.
-
-
-
-
-
-\section{Disaggregated Algorithms}
+\section{Disaggregated Datastructures}
 
 \subsection{Clover}
 
@@ -762,11 +698,7 @@ heavy.
 possible to read invalid data via \textbf{race} condition}
 
 
-
-
-
 \subsection{Sherman B-Tree}
-
 Optimizations - Local Caching of locks. Use of In-order delivery RDMA to
 coalesce writes. Unsorted B-Tree leaves. On NIC memory locks.
 
@@ -796,7 +728,78 @@ means it's not present. Mind provides both memory protection and cache
 coherence. It's not going to be able to compete with
 SwordBox~\cite{Grant2021InContRes} as it is blocking.
 
-\section{remote memory traps}
+\section{Additional Remote Memory Techniques}
+\label{sec:additional}
+
+Section~\ref{sec:techniques} describes the top seven techniques we found to be
+most used, and effective in our literature survey. However there are many more
+common considerations which we briefly detail here.
+
+\subsection{Network Caching} A variety of caching techniques reduce latency for far memory
+application. Caching allows for a two fold benefit. The first is that the
+distance between requests and the required data is less. Caching on a switch
+removes the last hop in a rack, and on a NIC removes a PCIe round trip. The
+dangers with caching is that the important caching data must be determined
+somehow. Traditional caching techniques can lead to massive bandwidth inflation.
+The second advantage of caching in network is centralization which can reduce
+the communication between hosts.
+
+\subsection{Memory Traffic} As noted during Yizhous research exam. There is a
+potential for a massive amount of additional traffic to flow over the network
+due to accessing memory. There are various factors for this. In paging and cache
+based transparent systems~\cite{fastswap,kona,gms,infiniswap,legoos,lite}, the
+size and associativity of the local cache determines the traffic rate. Each
+traffic rate is also a function of the programs memory access policy, and the
+systems eviction policy. Shrinking a local cache could significantly inflate
+traffic. This is simultaneously true for any cache coherence protocol, or data
+structure which needs to have a locally up to date version of remote data prior
+to making an update. Memory traffic can be deflated by using traffic agnostic
+techniques such as compression, or by modifying the access policy, such as
+prefetching more or less remote memory. There is no magic bullet for this
+problem, each instance of a remote memory system will have to solve this problem
+in its own way.
+
+One aspect of caching protocols is that they explode the traffic requirements.
+On memory busses only intended for memory traffic, this may be acceptable, but
+on an RDMA network it's going to be most of the traffic. For example the
+proposals in Thinking outside of the Box~\cite{design-far-memory-struct} calls
+for cache coherence protocols, while Mind~\cite{mind} actually implements one.
+Swordbox actually removes the need for the cache coherence by fixing the missing
+data in network.
+
+\subsection{Write amplification mitigation}
+\label{sec:write-amplification}
+%%
+Remote structures sometimes require write
+amplification. Consider a set of entries each guarded with a checksum for
+integrity. An update to any entry requires the recomputation of the checksum,
+and the rewrite of the continuous addresses in order to make the write in a
+single round trip. Depending on the bucket size of the entries the write can
+grow arbitrarily. Another technique is to make each entry have it's own checksum
+for it's integrity, and to only update the bucket checksum when all items become
+static.
+
+\subsection{Network Serialization} 
+\label{sec:net_ser}
+%
+centralized in network compute can be used to steer and modify
+requests when data races and conflicts occur. The downside is that this takes an
+extra bit of in network processing, but it gets a big speed up. In order for a
+middlebox to make the correct steering decision it requires all of the
+information necessary to preserve the data invariants of the structure it is
+steering into. This limitation demands that the data structure itself be well
+conditioned for this property, and be able to deal with potential variance in
+its structure.
+
+A potential use for steering is also to perform in place updates while allowing
+for reads. For example imagine updating a range on a data structure [x,y] the
+first step of the operation could be to lock the region, then copy [x,y] to a
+new location [x',y']. During the update reads are steered to the new [x',y'] and
+the update is made in place on the old [x,y]. When the operation is complete the
+steering stops and the update is atomically visible. This could be useful for
+non-pointer based structures like hopscotch hashes~\cite{hopscotch}.
+
+\section{Remote emory traps}
 
 \textbf{Centralized Serialization} My approach uses a centralized serialization
 point to alleviate coordination. However it has been shown that doing all the
@@ -929,7 +932,6 @@ link lists by caching the location of the tail of the list.
 
     \label{fig:middlebox_model}
 \end{figure}
-
 
 
 % \section{notes}
