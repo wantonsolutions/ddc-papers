@@ -175,6 +175,10 @@ flows through that machines NIC.
     \begin{tabular}{ c | c | c | c | c | c | c | c | c | c }
         & project & \shortstack{read \\ inflation} & \shortstack{relaxed  \\ layout} & \shortstack{pre-\\compute} & \shortstack{optimistic \\ concurrency} & \shortstack{metadata \\ caching} & \shortstack{client \\ coalescing} & \shortstack{write \\ amp} & \shortstack{self \\ verifing}  \\ \hline
                                                                 %N          %R          %P          %O          %M          %C          %W          %S
+\multirow{3}{*}{\rotatebox[origin=c]{90}{\shortstack{Multicore \\ NUMA}}} & \shortstack{Flat \\ Combining}~\cite{flat-combine}   & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \fullcirc & \nullcirc & \nullcirc \\ \cdashline{2-10}
+         & \shortstack{Hopscotch \\ Hash}~\cite{hopscotch}         & \fullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc \\ \cdashline{2-10}
+%\multirow{1}{*}{\rotatebox[origin=c]{0}{\shortstack{NUMA}}} & \shortstack{Blackbox \\ NUMA}~\cite{black-box-numa}     &  &  &  &  &  &  &  &  \\ \hline \hline %\cline{2-10} \cline{2-10}
+        & \shortstack{Blackbox \\ NUMA}~\cite{black-box-numa}     &  &  &  &  &  &  &  &  \\ \hline %\cline{2-10} \cline{2-10}
 \multirow{6}{*}{\rotatebox[origin=c]{90}{\shortstack{RDMA \\ Key-Value}}} & pilaf~\cite{pilaf}                                      & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \fullcirc \\ \cdashline{2-10}
          & farm~\cite{farm}                                        & \fullcirc & \nullcirc & \nullcirc & \fullcirc & \fullcirc & \fullcirc & \nullcirc & \nullcirc \\ \cdashline{2-10}
          & herd~\cite{herd}                                        & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc \\ \cdashline{2-10}
@@ -182,10 +186,7 @@ flows through that machines NIC.
          % & % fasst~\cite{faast}                                      & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc \\ \hdashline
          % & % erpc~\cite{erpc}                                        & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc \\ \hdashline
          & storm~\cite{storm}                                      &  &  &  &  &  &  &  &  \\ \cdashline{2-10}
-         & 1RMA~\cite{1rma}                                        &  &  &  &  &  &  &  &  \\ \hline
-\multirow{2}{*}{\rotatebox[origin=c]{90}{\shortstack{Misc \\ Scalable}}} & \shortstack{Flat \\ Combining}~\cite{flat-combine}      &  &  &  &  &  &  &  &  \\ \cdashline{2-10}
-         & \shortstack{Hopscotch \\ Hash}~\cite{hopscotch}         &  &  &  &  &  &  &  &  \\ \cline{1-10}
-\multirow{1}{*}{\rotatebox[origin=c]{0}{\shortstack{NUMA}}} & \shortstack{Blackbox \\ NUMA}~\cite{black-box-numa}     &  &  &  &  &  &  &  &  \\ \hline \hline %\cline{2-10} \cline{2-10}
+         & 1RMA~\cite{1rma}                                        &  &  &  &  &  &  &  &  \\ \hline \hline
 \multirow{3}{*}{\rotatebox[origin=c]{90}{\shortstack{\small Disaggregated \\ \small Datastructures }}}        & Clover~\cite{clover}                                    & \nullcirc &  \halfcirc &  \nullcirc & \fullcirc & \fullcirc  & \nullcirc & \nullcirc & \nullcirc \\ \cdashline{2-10}
          & \shortstack{RACE}~\cite{write-op-hash}            & \fullcirc  & \fullcirc & \halfcirc & \fullcirc & \fullcirc & \nullcirc & \nullcirc & \fullcirc \\ \cdashline{2-10}
          & Sherman~\cite{sherman}                                          &  &  &  &  &  &  & \\ \cdashline{2-10}
@@ -927,47 +928,40 @@ link lists by caching the location of the tail of the list.
     \label{fig:middlebox_model}
 \end{figure}
 
-\subsection{Mind}
 
 
+% \section{notes}
 
-\section{notes}
+% The papers~\cite{one-sided-hash} and ~\cite{write-op-hash} are almost
+% identical. It's the same author, I'm just noting that the change between NUMA
+% and Far memory could use this as a case study.
 
-The papers~\cite{one-sided-hash} and ~\cite{write-op-hash} are almost
-identical. It's the same author, I'm just noting that the change between NUMA
-and Far memory could use this as a case study.
+% Similar to the concept of a bandwidth delay product, in terms of remote memory
+% there is a latency operation product which is expanded by the time it takes for
+% an operation to complete. For example O(1) will have less active operations than
+% an O(2) data structure simply by the nature of the operations. Anything requiring
+% a read and a write to complete will take longer to complete due to the round
+% trip.
 
-Similar to the concept of a bandwidth delay product, in terms of remote memory
-there is a latency operation product which is expanded by the time it takes for
-an operation to complete. For example O(1) will have less active operations than
-an O(2) data structure simply by the nature of the operations. Anything requiring
-a read and a write to complete will take longer to complete due to the round
-trip.
+% In the few concurrent papers I read there is the concept of performing a marking
+% on a data structure. For example this concurrent binary
+% tree~\cite{fast-concurrent-bin} marks edges to ensure that they do not get
+% modified in a way that breaks the tree. This marking is similar to placing a
+% lock. I think that similar to marking, there should be a way to check a data
+% structures in flight operations, if all the operations are known ahead of time,
+% and then serialize the requests based on that.
 
-In the few concurrent papers I read there is the concept of performing a marking
-on a data structure. For example this concurrent binary
-tree~\cite{fast-concurrent-bin} marks edges to ensure that they do not get
-modified in a way that breaks the tree. This marking is similar to placing a
-lock. I think that similar to marking, there should be a way to check a data
-structures in flight operations, if all the operations are known ahead of time,
-and then serialize the requests based on that.
+% There is a good argument for algorithms between the two worlds of remote memory.
+% On one hand we have pure remote memory, one sided operations with zero
+% interference. These are unbelievably slow. And we can say from a straw man
+% perspective that they could use better algorithms. On the other hand we have
+% solutions like in~\cite{design-far-memory-struct,near-memory-structs}, which
+% suggest near memory computing with on board compute near memory. In this case
+% they also show that with the best near memory compute the old algorithms simply
+% do not work because the serialization gets overloaded.
 
-There is a good argument for algorithms between the two worlds of remote memory.
-On one hand we have pure remote memory, one sided operations with zero
-interference. These are unbelievably slow. And we can say from a straw man
-perspective that they could use better algorithms. On the other hand we have
-solutions like in~\cite{design-far-memory-struct,near-memory-structs}, which
-suggest near memory computing with on board compute near memory. In this case
-they also show that with the best near memory compute the old algorithms simply
-do not work because the serialization gets overloaded.
-
-Would it be possible to implement transactional memory on a switch? How far off
-is Mind~\cite{mind} from doing this?
-
-\section{Figures}
-
-
-
+% Would it be possible to implement transactional memory on a switch? How far off
+% is Mind~\cite{mind} from doing this?
 
 %\section{review}  
 
