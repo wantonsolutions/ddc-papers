@@ -297,16 +297,14 @@ advantage of~\cite{sherman}.
 \textbf{Hopscotch Hashing~\cite{hopscotch}}
 \todo{this portion}
 
-\textbf{Blackbox Numa~\cite{black-box-numa}}
-
-Black-box Numa proposes node replication, a universal construction for NUMA
-architectures. Node replication is a generic formula for transforming any data
-structure into a concurrent NUMA aware data structure. The transformation uses a
-shared operational log which provides linearizability for all operations to the
-shared structure. When process runs an operation, for example an insert into a
-tree, the arguments of the operation are appended to the shared log. The log of
-operations can then be replayed by any processes to obtain an up to date version
-of the structure.
+\textbf{Blackbox Numa~\cite{black-box-numa}} proposes node replication, a
+universal construction for NUMA architectures. Node replication is a generic
+formula for transforming any data structure into a concurrent NUMA aware data
+structure. The transformation uses a shared operational log which provides
+linearizability for all operations to the shared structure. When process runs an
+operation, for example an insert into a tree, the arguments of the operation are
+appended to the shared log. The log of operations can then be replayed by any
+processes to obtain an up to date version of the structure.
 
 Node replication makes use of many optimizations, as the name suggests, the
 shared log is replicated on each node. Local copies of the shared structure are
@@ -599,8 +597,15 @@ example queues are simple. This can allow for cluster approximate fairness where
 each machine, or numa domain is fair with respect to itself, but not the system
 as a whole.
 
-\subsection{Self verifying}
-\todo{}
+\subsection{Self verifying} RDMA reads and write have a variety of ordering
+guarantees depending on the transport used, but in general only operations on
+the same queue pair with a reliable connection are ordered with respect to one
+another. Accesses to memory from the host CPU only has atomic memory operations
+as a tool to order reads and writes with the NIC. This leads to read tearing
+where either the host CPU, or a client RDMA request sees a partially completed
+write. In the absence of serialization the data itself can be made self verifying.
+Pilaf, and Cell are notable examples of KV stores which use self verifying
+data~\cite{pilaf,cell}.
 
 
 \section{Disaggregated Datastructures}
