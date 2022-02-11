@@ -944,3 +944,42 @@ url = {https://www.usenix.org/conference/atc16/technical-sessions/presentation/m
 publisher = {USENIX Association},
 month = jun,
 }  
+
+
+@inproceedings{simple-fast,
+author = {Michael, Maged M. and Scott, Michael L.},
+title = {Simple, Fast, and Practical Non-Blocking and Blocking Concurrent Queue Algorithms},
+year = {1996},
+isbn = {0897918002},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/248052.248106},
+doi = {10.1145/248052.248106},
+booktitle = {Proceedings of the Fifteenth Annual ACM Symposium on Principles of Distributed Computing},
+pages = {267–275},
+numpages = {9},
+keywords = {compare_and_swap, concurrent queue, non-blocking, multiprogramming, lock-free},
+location = {Philadelphia, Pennsylvania, USA},
+series = {PODC '96}
+}
+
+@inproceedings{lock-free-skip,
+author = {Fomitchev, Mikhail and Ruppert, Eric},
+title = {Lock-Free Linked Lists and Skip Lists},
+year = {2004},
+isbn = {1581138024},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/1011767.1011776},
+doi = {10.1145/1011767.1011776},
+abstract = {Lock-free shared data structures implement distributed objects without the use of mutual exclusion, thus providing robustness and reliability. We present a new lock-free implementation of singly-linked lists. We prove that the worst-case amortized cost of the operations on our linked lists is linear in the length of the list plus the contention, which is better than in previous lock-free implementations of this data structure. Our implementation uses backlinks that are set when a node is deleted so that concurrent operations visiting the deleted node can recover. To avoid performance problems that would arise from traversing long chains of backlink pointers, we introduce flag bits, which indicate that a deletion of the next node is underway. We then give a lock-free implementation of a skip list dictionary data structure that uses the new linked list algorithms to implement individual levels. Our algorithms use the single-word C&S synchronization primitive.},
+booktitle = {Proceedings of the Twenty-Third Annual ACM Symposium on Principles of Distributed Computing},
+pages = {50–59},
+numpages = {10},
+keywords = {efficient, amortized analysis, distributed, lock-free, fault-tolerant, linked list, skip list, analysis},
+location = {St. John's, Newfoundland, Canada},
+series = {PODC '04}
+}
+
+  
+

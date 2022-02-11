@@ -83,6 +83,7 @@ placed on network optimizations as we consider the network to be the key
 difference between disaggregation and prior system architectures.
 
 \section{What this paper is not}
+\label{sec:not}
 
 This paper is focused on data structures for disaggregation, it is not a systems
 summary.  Many projects exist which are designed for the disaggregated model,
@@ -184,8 +185,8 @@ flows through that machines NIC.
 \multirow{2}{*}{\rotatebox[origin=c]{90}{\shortstack{Misc \\ Scalable}}} & \shortstack{Flat \\ Combining}~\cite{flat-combine}      &  &  &  &  &  &  &  &  \\ \cdashline{2-10}
          & \shortstack{Hopscotch \\ Hash}~\cite{hopscotch}         &  &  &  &  &  &  &  &  \\ \cline{1-10}
 \multirow{1}{*}{\rotatebox[origin=c]{0}{\shortstack{NUMA}}} & \shortstack{Blackbox \\ NUMA}~\cite{black-box-numa}     &  &  &  &  &  &  &  &  \\ \hline \hline %\cline{2-10} \cline{2-10}
-\multirow{3}{*}{\rotatebox[origin=c]{90}{\shortstack{\small Disaggregated \\ \small Datastructures }}}        & Clover~\cite{clover}                                    &  &  &  &  &  &  &  &  \\ \cdashline{2-10}
-         & \shortstack{Concious \\Hashing}~\cite{write-op-hash}            &  &  &  &  &  &  &  &  \\ \cdashline{2-10}
+\multirow{3}{*}{\rotatebox[origin=c]{90}{\shortstack{\small Disaggregated \\ \small Datastructures }}}        & Clover~\cite{clover}                                    & \nullcirc &  \halfcirc &  \nullcirc & \fullcirc & \fullcirc  & \nullcirc & \nullcirc & \nullcirc \\ \cdashline{2-10}
+         & \shortstack{RACE}~\cite{write-op-hash}            & \fullcirc  & \fullcirc & \halfcirc & \fullcirc & \fullcirc & \nullcirc & \nullcirc & \fullcirc \\ \cdashline{2-10}
          & Sherman~\cite{Sherman}                                          &  &  &  &  &  &  & \\ \cdashline{2-10}
          & Mind~\cite{mind}                                                &  &  &  &  &  &  & \\ \hline
 
@@ -216,8 +217,45 @@ flows through that machines NIC.
   % \end{table*}
   
   
+\section{Influential Prior Work}
+
+In terms of system design the works mentioned in ~\ref{sec:not}, are doubtlessly
+influential on the state of disaggregation. Here we are focus on the algorithmic
+material. In particular disaggregated and remote memory systems make use of the
+concurrency patterns in lockless data structures. Locking typically costs two
+round trips to remote memory, and course grained locking can cause many
+processes to block. Many lock free data structures use CAS operations for
+serialization, which are implemented as part of the Infiniband RDMA
+specification.
 
 \subsection{Lock Free Data Structures}
+
+Huge amount of prior work has been done in developing lock free data structures.
+Such structures allow for concurrent reads and writes so a shared structure by
+many processes. Rather than modifying a structure by gaining exclusive access,
+lock free typically perform work out of place, and then commit the updates to a
+structure using atomic operations such as Fetch-and-Add (FAA) and CAS
+(Compare-And-Swap). These lockless structures are often opportunistic, and in
+the face of contention cause updates to retry multiple times unill they meet the
+criteria for the update to succeed.
+
+Examples of influential concurrent structures include non-blocking
+queues~\cite{simple-fast}. This algorithm presents a safe way to implement
+enqueue dequeue with CAS. The pattern for enqueue is to write out new data,
+search concurrently for the tail, and then attempt a CAS to connect the new
+element. If failure occurs because a concurrent process wrote, the CAS fails,
+and the procedure retires the traversal until success. This pattern of write out
+of bound, then commit an update is common among concurrent algorithms.
+
+Fomitchev et.al introduces lock free linked lists and skip
+lists~\cite{lock-free-skip}. Similar to queues this algorithm allocates tiers of
+a skiplist and then incrementally commits them via CAS. This technique requires
+additional care as the data structures are more complex, and updates cannot be
+committed in a single CAS operation. To solve this problem CAS's are used to
+first invalidate nodes, similar to locking, and then updates are applied via CAS
+to include new nodes in the skiplist. This work also introduces safety
+optimizations such as pointing deleted nodes in lists back to their previous
+node to keep the structure valid while the update occurs.
 
 
 \subsection{NUMA}
@@ -651,7 +689,117 @@ link the write to a shared data structure using an RDMA CAS operation.
 
 \subsection{Clover}
 
-\subsection{Write Conscious Hashing}
+Clover is a key value store designed for persistent, disaggregated memory. All
+of it's remote memory operations are performed via one side RDMA, with the
+exception of two sided metadata operations sent to non-disaggregated metadata
+servers. This architecture is reached by an empirical evaluation of 4
+alternative systems, one which uses a centralized coordinator, and another with
+no metadata server at all. The out of band approach is found to perform well for
+read only, and sparse write workloads. 
+
+Clover makes use of many techniques for optimizing access to remote memory.
+Firstly, it's core algorithm relies on optimistic concurrency. Each key in it's
+key value store maintains a history in the form of a linked list. Writes append
+values to the list by writing to a partitioned address space first, and then
+linking the new write to the list via a CAS operation. The CAS location at the
+tail of the list becomes stale if contended with another successful write, in
+which case a clover client must traverse the list, each key resolution requires
+another round trip. To reduce the number of stale requests, the tail location of
+each key is cached locally, and periodically updated lazily from the metadata
+server. Clover's key-value store has no predetermined or canonical layout, while
+this is not necessarily a relaxed layout, the use of a partitioned address space
+for writes is a clever way to reduce write conflicts.
+
+
+\textbf{Opportunities:} Clover does not make use of self verifying data
+structures, with the exception of it's pDPM direct. Clover writes take two round
+trips in the common case, the first to write, the second to CAS. This ensure the
+write completes prior to committing with a CAS. Were clover to have a self
+verifying write, the CAS could be batched with the write, thereby allowing
+partially written writes to be included in the chain in one RTT. Clover assumes
+the worst case for clients in which none are co-resident on the same machine. In
+practice clover could gain significant benefits by coalescing client writes with
+techniques such as flat combining, when clients are co-resident. This
+speculation is based on the analysis that Clovers write throughput under 50/50
+read write is well below the throughput of a single queue
+pair~\cite{design-guidelines}. It could likely gain performance boosts similar
+to Sherman~\cite{sherman}, by taking this optimizations into account. 
+
+Clovers data layout is sparse so it cannot simply inflate it's reads in order to
+gain more information, and skip round trips. Figure~\ref{fig:clover_alt} shows
+clovers memory layout on the left, in which process isolated memory references
+each other via pointers. On the right an alternative design shows a similar
+structure which allows for traversals using fewer round trips as the size of the
+read can be expanded linearly to capture more of the pointers. Note however that
+this layout is not identical as reads have no explicit way of determining that a
+value has become invalid by reading the data itself. This example is intended to
+illustrate an alternative approach which could accelerate clovers pointer
+chaining, potentially reducing the requirement for a metadata store. More design
+rigor would be required to achieve the same read semantics.
+
+
+\begin{figure}
+    \includegraphics[width=0.45\textwidth]{fig/clover_alt.pdf}
+
+    \caption{An alternative data layout for Clovers key value store, which would allow for expanded reads to quickly resolve tails.}
+    \label{fig:clover_alt}
+\end{figure}
+
+
+\subsection{RDMA Write Conscious Hashing (RACE~\cite{one-sided-hash})}
+
+RACE designes an RDMA optimized key-value store for remote memory. RACE is
+lock-free and makes use of additional memory to reduce conflicts and contention.
+RACE notes that prior hash solutions can incur multiple round trips when the
+lookups fail, and that if the index must shuffle data such as cuckoo and
+hopscotch hashing, lock contention is inflated. RACE caches client metadata
+locally to avoid performing directory lookups in the common case. This is a
+critical design point as RACE makes use of a two level directory which changes
+each time the hash table expands. The local client cache allows for O(1) lookups
+by examining the metadata on the client, and only traversing the true directory
+when version numbers have changed.
+
+RACE introduces a sophisticated disaggregation specific suitable structure. At
+every point in it's design this subtable makes use of RDMA's ability to read
+ranges of sequential addresses easily. Firstly all of the buckets in the hash
+table are associate so that up to four collisions can occur in a single per read
+location. Second an overflow bucket is used as a buffer between each second
+bucket. In this way there is additional space for overflow. Finally power of two
+is used to select multiple locations for a write to land. In total this forces
+reads to read two bucket locations, and two overflow location per read. With an
+associativity of 4. In total this gives an extremely high likelihood of $O(1)$
+reads while coming at a cost of 16x the read bandwidth. This read inflation is
+amortized by only performing two reads, and batching them together
+asynchronously. While this reduces the overall load on keys, is half's the
+theoretical reads per second due to the packet processing ability of the
+receiving side NIC. 
+
+To enable scalability RACE uses concurrent lockless reads and inserts to improve
+average case performance.  RACE's main downside is it's inability to reduce the
+number of round trips for each operation. Each read requires an access to the
+index structure followed by a data read. These two round trips require three
+packets. Insertions require four round trips, writes three, and deletions 3.
+While batching is used to reduce the cost of round trips when possible the
+overall cost remains high especially as the number of RTT leads to high tail
+latencies. The requirement for round trips is that it's metadata is divorced
+from it's data. Therefore all requests must first make a metadata traversal.
+Were RACE to adopt an implicit data invalidation scheme like Clover it could
+potentially optimize for one less round trip per read and write.
+
+A short example of an optimization, similar to clover would be to include some
+sort of version in the slot, perhaps by removing the fingerprint, or size of
+read, or to treat the address of the slot as a version number. Updates to this
+key could be done in fewer round trips by trying an opportunistic CAS on the
+version number of the slot. With client side search could be avoided and
+deletion could be done in a single round trip in the common case where reads are
+heavy.
+
+\sg{while reading I think I found a linearizability bug in RACE, I think it's
+possible to read invalid data via \textbf{race} condition}
+
+
+
+
 
 \subsection{Sherman Btree}
 
