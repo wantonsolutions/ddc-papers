@@ -138,6 +138,24 @@ publisher = {{USENIX} Association},
 month = jul,
 }
 
+@article{supernic,
+  author    = {Yizhou Shan and
+               Will Lin and
+               Ryan Kosta and
+               Arvind Krishnamurthy and
+               Yiying Zhang},
+  title     = {Disaggregating and Consolidating Network Functionalities with SuperNIC},
+  journal   = {CoRR},
+  volume    = {abs/2109.07744},
+  year      = {2021},
+  url       = {https://arxiv.org/abs/2109.07744},
+  eprinttype = {arXiv},
+  eprint    = {2109.07744},
+  timestamp = {Wed, 22 Sep 2021 14:16:57 +0200},
+  biburl    = {https://dblp.org/rec/journals/corr/abs-2109-07744.bib},
+  bibsource = {dblp computer science bibliography, https://dblp.org}
+}
+
 @article{storm,
   author    = {Stanko Novakovic and
                Yizhou Shan and
@@ -564,6 +582,7 @@ keywords = {numa architecture, black-box techniques, log, replication, concurren
   bibsource = {dblp computer science bibliography, https://dblp.org}
 }
 
+
 @inproceedings{Grant2021InContRes,
 author = {Grant, Stewart and Snoeren, Alex C.},
 title = {In-network Contention Resolution for Disaggregated Memory},
@@ -980,6 +999,79 @@ keywords = {efficient, amortized analysis, distributed, lock-free, fault-toleran
 location = {St. John's, Newfoundland, Canada},
 series = {PODC '04}
 }
+
+@inproceedings{non-block-binary,
+author = {Ellen, Faith and Fatourou, Panagiota and Ruppert, Eric and van Breugel, Franck},
+title = {Non-Blocking Binary Search Trees},
+year = {2010},
+isbn = {9781605588889},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/1835698.1835736},
+doi = {10.1145/1835698.1835736},
+abstract = {This paper describes the first complete implementation of a non-blocking binary search tree in an asynchronous shared-memory system using single-word compare-and-swap operations. The implementation is linearizable and tolerates any number of crash failures. Insert and Delete operations that modify different parts of the tree do not interfere with one another, so they can run completely concurrently. Find operations only perform reads of shared memory.},
+booktitle = {Proceedings of the 29th ACM SIGACT-SIGOPS Symposium on Principles of Distributed Computing},
+pages = {131–140},
+numpages = {10},
+keywords = {non-blocking, cas, binary search tree, shared memory},
+location = {Zurich, Switzerland},
+series = {PODC '10}
+}
+
+@inproceedings{read-concur-btree,
+author = {Sagiv, Yehoshua},
+title = {Concurrent Operations on B-Trees with Overtaking},
+year = {1985},
+isbn = {0897911539},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/325405.325409},
+doi = {10.1145/325405.325409},
+booktitle = {Proceedings of the Fourth ACM SIGACT-SIGMOD Symposium on Principles of Database Systems},
+pages = {28–37},
+numpages = {10},
+location = {Portland, Oregon, USA},
+series = {PODS '85}
+}
+
+@inproceedings{lock-free-btree,
+author = {Braginsky, Anastasia and Petrank, Erez},
+title = {A Lock-Free B+tree},
+year = {2012},
+isbn = {9781450312134},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/2312005.2312016},
+doi = {10.1145/2312005.2312016},
+abstract = {Lock-free data structures provide a progress guarantee and are known for facilitating scalability, avoiding deadlocks and livelocks, and providing guaranteed system responsiveness. In this paper we present a design for a lock-free balanced tree, specifically, a B+tree. The B+tree data structure has an important practical applications, and is used in various storage-system products. As far as we know this is the first design of a lock-free, dynamic, and balanced tree, that employs standard compare-and-swap operations.},
+booktitle = {Proceedings of the Twenty-Fourth Annual ACM Symposium on Parallelism in Algorithms and Architectures},
+pages = {58–67},
+numpages = {10},
+keywords = {concurrent data structures, progress guarantee, lock-freedom, parallel programming, B+tree},
+location = {Pittsburgh, Pennsylvania, USA},
+series = {SPAA '12}
+}
+
+  
+@inbook{aifm,
+author = {Ruan, Zhenyuan and Schwarzkopf, Malte and Aguilera, Marcos K. and Belay, Adam},
+title = {AIFM: High-Performance, Application-Integrated Far Memory},
+year = {2020},
+isbn = {978-1-939133-19-9},
+publisher = {USENIX Association},
+address = {USA},
+abstract = {Memory is the most contended and least elastic resource in datacenter servers today. Applications can use only local memory--which may be scarce--even though memory might be readily available on another server. This leads to unnecessary killings of workloads under memory pressure and reduces effective server utilization.We present application-integrated far memory (AIFM), which makes remote, "far" memory available to applications through a simple API and with high performance. AIFM achieves the same common-case access latency for far memory as for local RAM; it avoids read and write amplification that paging-based approaches suffer; it allows data structure engineers to build remoteable, hybrid near/far memory data structures; and it makes far memory transparent and easy to use for application developers.Our key insight is that exposing application-level semantics to a high-performance runtime makes efficient remoteable memory possible. Developers use AIFM's APIs to make allocations remoteable, and AIFM's runtime handles swapping objects in and out, prefetching, and memory evacuation.We evaluate AIFM with a prototypical web application frontend, a NYC taxi data analytics workload, a memcached-like key-value cache, and Snappy compression. Adding AIFM remoteable memory to these applications increases their available memory without performance penalty. AIFM outperforms Fastswap, a state-of-the-art kernel-integrated, paging-based far memory system [6] by up to 61\texttimes{}.},
+booktitle = {Proceedings of the 14th USENIX Conference on Operating Systems Design and Implementation},
+
+
+
+  
+
+
+
+      
+
+
 
   
 
