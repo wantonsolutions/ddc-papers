@@ -155,8 +155,6 @@ role of programable networking hardware in the future of disaggregation.
 
 \section{The Disaggregated Model}
 
-\todo{system diagram} 
-\\
 Disaggregation is a general term used for the separation
 of resources by a network. The composition and topology of the network plays a
 large role in how a disaggregated computer will manifest. The disaggregated
@@ -181,20 +179,20 @@ flows through that machines NIC.
          & \shortstack{Hopscotch \\ Hash}~\cite{hopscotch}         & \fullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc \\ \cdashline{2-9}
 %\multirow{1}{*}{\rotatebox[origin=c]{0}{\shortstack{NUMA}}} & \shortstack{Blackbox \\ NUMA}~\cite{black-box-numa}     &  &  &  &  &  &  &  &  \\ \hline \hline %\cline{2-10} \cline{2-10}
         & \shortstack{Blackbox \\ NUMA}~\cite{black-box-numa}     & \halfcirc & \nullcirc & \nullcirc & \fullcirc & \fullcirc & \fullcirc & \nullcirc \\ \hline %\cline{2-10} \cline{2-10}
-\multirow{6}{*}{\rotatebox[origin=c]{90}{\shortstack{RDMA \\ Key-Value}}} & pilaf~\cite{pilaf}                                      & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \fullcirc \\ \cdashline{2-9}
+\multirow{4}{*}{\rotatebox[origin=c]{90}{\shortstack{RDMA \\ Key-Value}}} & pilaf~\cite{pilaf}                                      & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \fullcirc \\ \cdashline{2-9}
          & farm~\cite{farm}                                        & \fullcirc & \nullcirc & \nullcirc & \fullcirc & \fullcirc & \fullcirc  & \nullcirc \\ \cdashline{2-9}
          & herd~\cite{herd}                                        & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc  & \nullcirc \\ \cdashline{2-9}
          & cell~\cite{cell}                                        & \nullcirc & \nullcirc & \nullcirc & \halfcirc & \fullcirc & \nullcirc  & \fullcirc \\ \cdashline{2-9}
-         % & % fasst~\cite{faast}                                      & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc \\ \hdashline
+         % & % fasst~\cite{faast}                                      & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc %& \nullcirc & \nullcirc \\ \hdashline
          % & % erpc~\cite{erpc}                                        & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc \\ \hdashline
-         & storm~\cite{storm}                                      &  &  &  &  &  &  &  \\ \cdashline{2-9}
-         & 1RMA~\cite{1rma}                                        &  &  &  &  &  &  &  \\ \hline \hline
+         %& storm~\cite{storm}                                      &  &  &  &  &  &  &  \\ \cdashline{2-9}
+         % & 1RMA~\cite{1rma}                                        &  &  &  &  &  &  &  \\ \hline \hline
 \multirow{5}{*}{\rotatebox[origin=c]{90}{\shortstack{\small Disaggregated \\ \small Datastructures }}}        & Clover~\cite{clover}                                    & \nullcirc &  \halfcirc &  \nullcirc & \fullcirc & \fullcirc  & \nullcirc & \nullcirc \\ \cdashline{2-9}
 %\multirow{5}{*}{\rotatebox[origin=c]{90}{\shortstack{Far-Memory \\ Structures}}}        & Clover~\cite{clover}                                    & \nullcirc &  \halfcirc &  \nullcirc & \fullcirc & \fullcirc  & \nullcirc & \nullcirc \\ \cdashline{2-9}
          & \shortstack{RACE}~\cite{write-op-hash}            & \fullcirc  & \fullcirc & \halfcirc & \fullcirc & \fullcirc & \nullcirc & \fullcirc \\ \cdashline{2-9}
-         & Sherman~\cite{sherman}                                          &  &  &  &  &  & \\ \cdashline{2-9}
+         & Sherman~\cite{sherman}                            & \fullcirc & \fullcirc & \halfcirc & \fullcirc & \fullcirc & \fullcirc & \fullcirc \\ \cdashline{2-9}
          & Ford~\todo{}                                          &  &  &  &  &  & \\ \cdashline{2-9}
-         & Mind~\cite{mind}                                                &  &  &  &  &  & \\ \hline
+         & Mind~\cite{mind}                                                & \nullcirc & \halfcirc & \halfcirc & \nullcirc & \fullcirc & \nullcirc & \nullcirc \\ \hline
 
 
     \end{tabular}
@@ -294,8 +292,25 @@ combining the requests of local threads, a benefit that Sherman takes complete
 advantage of~\cite{sherman}.
 
 
-\textbf{Hopscotch Hashing~\cite{hopscotch}}
-\todo{this portion}
+\textbf{Hopscotch Hashing~\cite{hopscotch}} introduces a cache optimized
+hashmap. Similar to cuckoo hashing it is open addressed. When data collisions
+occur on writes, the write searches for a location by looking for a spot a
+bounded distance away from the hash location. If an empty spot is found the
+value is written, and a marker is written to the original hash location to
+inform readers that there is a value $n$ steps away which collided. If no spot
+is found for the write, the \textit{hopscotch} is invoked and the procedure for
+finding a candidate write is performed iteratively on neighboring buckets
+until a new spot within range is found for the new write. If too many hops are
+taken, the hash doubles in side and all items are rehashed.
+
+This algorithm was designed to be cache efficient, as lookups would likely be on
+the same cache line. It has the additional advantage that when a value is
+written, it's location is deterministic within a bound. In remote memory this
+allows for $)(1)$ lookups as the size of the read can be expanded to included
+the max distance an entry is from its starting location. This structure is
+unfortunate in that writes can take many round trips and complex locking due to
+the number of rewrites when the hopscotch algorithm is invoked.
+
 
 \textbf{Blackbox Numa~\cite{black-box-numa}} proposes node replication, a
 universal construction for NUMA architectures. Node replication is a generic
@@ -326,7 +341,7 @@ bounded cache line size. Due to the linear layout of its log, if it were ported
 to far memory a single large read could capture many log entries reducing the
 round trip cost.  Another difference is that atomic operations like CAS are
 considered cheap, which is not necessarily the case in RDMA
-deployments~\cite{design-guideline}, see Section~\ref{sec:pitfalls} for more
+deployments~\cite{design-guidelines}, see Section~\ref{sec:pitfalls} for more
 details. 
 
 
@@ -426,23 +441,23 @@ disaggregated model easily.}
 side requests and server side processing by developing a novel B-Tree structure.
 In cell clients perform reads, while the server does the work to process writes
 similar to Pilaf.
-
+%
 Servers carefully apply locks to internal B-tree nodes to ensure that concurrent
 client traversals of the tree are always valid. Clients cache the trees upper
 level metadata including key ranges of meganodes (small partitions of the
 btree), and the depth of the trees.
-
+%
 Keys are protected in two ways, firstly ranges are projected by version numbers.
 The version numbers ensure that the root node is the same as the version applied
 to the write, two version updates are appled per write so that a concurrent
 client can detect a partially complete write. Additionally keys are projected by
 a CRC the same is in Pilaf to prevent read/write tearing.
-
+%
 Client side traversals of the B-Tree are poor, taking up to 5 RTT to complete
 the traversal of the meganodes. They justify their choice by stating that RDMA
 is fast. These operations create significant latency spikes for operations, and
 inflate bandwidth costs.
-
+%
 Cell makes use of opportunistic reads, that is that it assumes that the state of
 the tree is readable when reads are attempted, if the server has some subset of
 the tree locked during read traversal, the client fails and then retries. This
@@ -468,21 +483,34 @@ consistent state are used by Cell.
 %for this RE.
 
 
-\textbf{storm~\cite{storm}} Storm makes the argument that modern NICs have the
-ability to scale well, in contrast to what has been stated in prior work.
+% \textbf{storm~\cite{storm}} Storm makes the argument that modern NICs have the
+% ability to scale well, in contrast to what has been stated in prior work. STORM
+% uses a hybrid of one sided operations, and two sided operations. To remove the
+% cost of pointer chaising, they swap between one sided reads/writes to RPC when
+% pointers need to be chased. This approach does not directly port to
+% disaggregation, as their are no memory side CPU's to perform the RPC, however
+% some of this functionality could be ported to network hardware such as memory side
+% smartnics.
 
-\textbf{1RMA~\cite{1rma}}
 
-Reading through the 1RMA paper~\cite{1rma}, they make the case for basically
-using the NIC to execute remote operations and nothing else. In some respects I
-def get this aspect of the RDMA construction. Push all of the connection
-management to the client side, and just let the RDMA do it's thing with the
-extremely high assumption that the packets are going to make it back with a
-response. By managing everything on the client side we can get things like
-control flow windows, ordering ect without pushing any of this to the hardware
-itself. I think that this set of features is somewhat desirable. It would be
-cool if the NICs could basically just work on ethernet packets, and then if we
-wanted we could interpose on the application level info whenever we wanted.
+% \textbf{1RMA~\cite{1rma}}
+
+% 1RMA argues that the benefits of one sided reads are sufficient enough to
+% integrate into large scale production environments, even with their increased
+% complexity. 1RMA does not use pure RDMA, and instead exposes an RDMA like
+% interface in the kernel networking stack. They take the extreme stance that all functionality which can not be implemented entirely without the aid of software, should be entirely implemented in software, such as connection state, and packet ordering. Whats left is RDMA like primitives which are exposed to the user at a software level.
+
+% Reading through the 1RMA paper~\cite{1rma}, they make the case for basically
+% using the NIC to execute remote operations and nothing else. In some respects I
+% def get this aspect of the RDMA construction. Push all of the connection
+% management to the client side, and just let the RDMA do it's thing with the
+% extremely high assumption that the packets are going to make it back with a
+% response. By managing everything on the client side we can get things like
+% control flow windows, ordering ect without pushing any of this to the hardware
+% itself. I think that this set of features is somewhat desirable. It would be
+% cool if the NICs could basically just work on ethernet packets, and then if we
+% wanted we could interpose on the application level info whenever we wanted.
+% \todo{}
 
 
 %currently just a jotting area for ideas.
@@ -603,9 +631,15 @@ the same queue pair with a reliable connection are ordered with respect to one
 another. Accesses to memory from the host CPU only has atomic memory operations
 as a tool to order reads and writes with the NIC. This leads to read tearing
 where either the host CPU, or a client RDMA request sees a partially completed
-write. In the absence of serialization the data itself can be made self verifying.
-Pilaf, and Cell are notable examples of KV stores which use self verifying
-data~\cite{pilaf,cell}.
+write. In the absence of serialization the data itself can be made self
+verifying.  Pilaf, and Cell are notable examples of KV stores which use self
+verifying data~\cite{pilaf,cell}. Self verifying data comes in a variety of
+forms. The most common is the inclusion of a checksum, typically a CRC along
+with the data. If a write is partially completed a client can detect the
+inconsistency by computing the checksum. This adds CPU cost for the sake of
+concurrency. For transactional operations which require multiple independent reads
+to be consistent version numbers are used. If at the end of an operation the
+version numbers of each read do not match, the read is aborted.
 
 
 \section{Disaggregated Datastructures}
@@ -721,34 +755,56 @@ heavy.
 possible to read invalid data via \textbf{race} condition}
 
 
-\subsection{Sherman B-Tree}
-Optimizations - Local Caching of locks. Use of In-order delivery RDMA to
-coalesce writes. Unsorted B-Tree leaves. On NIC memory locks.
+\subsection{Sherman B-Tree~\cite{sherman}}
 
-Client side optimizations. A technique like flat combining is used for local
-locks~\cite{flat-combine}, whenever possible client side locking is used, and
-requests are issued by a centralized client side arbiter. Data structure layout
-is RDMA optimized. Sherman is truly write optimized. When writes occur they are
-unordered on their leaf nodes to prevent write amplification and the need to
-retry. Reads are totally async and use entry level version numbers to validate
+The Sherman B-Tree is a complete implementation of at B-Tree for remote memory.
+It makes use of many optimizations for remote memory, including some techniques
+not explicitly included in our high level comparison of techniques. Sherman
+makes use of optimistic concurrency in order to implement locks. While they
+acknowledge that their locking is potentially slow, they make two key
+optimizations. Firstly they place course grained locks onto NIC device memory,
+this optimization tipples their theoretical throughput. Second they use two
+tiers of locking, the aforementioned NIC locks are global, and protect writes to the
+entire tree. Local lock tables are implemented on clients in a flat combining
+fashion to reduce contention on the server side, and allow for local degrees of
+fairness.
+
+Reads are totally async and use entry level version numbers to validate
 themselves. Lookups can fail frequently, and the remedy is to retry. For
 instance overlapping reads and writes will lead to a retry. Range query are
 complex in that they do no contain consistent values. For transactional reads to
 occur reads must also lock. This is a strict lessening of constancy which may
 not be desireable for future applications.
 
-\subsection{Ford}
-\todo{I need to get it from Yizhou (print)}
+\subsection{Ford~\cite{ford}}
+
+(This paper is obviously relevant, but the preprint is not out yet. Yizhou is
+going to work with them and may get me a copy prior to the RE deadline.)
 
 \subsection{MIND~\cite{mind}}
 
-Mind uses a programmable switch as a memory controller. It tracks access to
-memory regions using a centralized cache. It makes use of the MSI cache
-coherence protocol (Modified, Shared, Invalid) which essentially acts as
-read/write locks on the memory. Shared means that many processes can read shared
-memory, modified means that it's dirty and owned by a single process, invalid
-means it's not present. Mind provides both memory protection and cache
-coherence. It's not going to be able to compete with
+Mind differs from other remote memory systems in that it uses the network as a
+centralized location to serialize access to disaggregated memory. Mind acts as an
+MMU providing isolation and protection to processes running on endhosts. It us  
+It makes use of the MSI cache coherence protocol (Modified, Shared, Invalid)
+which essentially acts as read/write locks on the memory. Shared means that many
+processes can read shared memory, modified means that it's dirty and owned by a
+single process, invalid means it's not present. Mind provides both memory
+protection and cache coherence. 
+
+As MIND is in-network it's constraints differ from all prior systems in that
+serialization is relatively cheap, but state is extremely expensive. In this way
+it's only cousin in this work is Sherman, as they both require careful use of in
+network locks. MIND uses a sophisticated page table splitting algorithm, similar
+to dynamic huge pages which uses minimal memory while providing protection to a
+large space of virtual addresses. MIND does share some characteristics with
+prior work, in that due to constraints it relaxes the definitions of it's
+structures, such as the virtual memory space of remote memory itself, which it
+combines into a single contiguous address space. This allows mind to only keep a
+translation entry for each memory server it manages.
+
+
+It's not going to be able to compete with
 SwordBox~\cite{Grant2021InContRes} as it is blocking.
 
 \section{Additional Remote Memory Techniques}
