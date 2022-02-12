@@ -28,9 +28,9 @@ cost of additional access latency
 Traditionally, access to the memory of a remote machine is guarded by a CPU
 which provides operation serialization, for example RPC calls.  Such
 serialization is impossible in the disaggregated setting as by definition no
-such CPU exists along side memory. This absence causes causes the cost of
-traditional serialization mechanisms, such as locks, to skyrocket when naively
-ported to remote memory.
+such CPU exists along side memory. This absence causes the cost of traditional
+serialization mechanisms, such as locks, to skyrocket when naively ported to
+remote memory.
 
 Fighting high cost coordination is not a new battle. Entire classes of lockless
 data structures have been designed to prevent contention unless true data races
@@ -39,7 +39,7 @@ exist, allowing for uncontested access to shared structures.
 Similarly the advent of NUMA servers lead to the production of new locality
 aware algorithms and data structures which scale to thousands of cores.
 ~\cite{linux-scale,black-box-numa}\todo{many cites for numa}. The common thread
-that ties these two approaches to the concept of disaggregation is that memory
+that ties these two contexts to the concept of disaggregation is that memory
 accesses are one sided, and the latency cost course grained serialization is
 high.
 
@@ -68,20 +68,21 @@ concepts which will make it accessible to system and application designers.
 While a litany of prototypes have been built which demonstrate the feasibility
 of
 disaggregation~\cite{infiniswap,fastswap,leap,legoos,aifm,kona,reigons,software-far,lite,semeru}
-conformity has been reached in terms of system design, algorithms, and data
-structures. These face levels differences make it difficult even for researchers
-to determine which problems are the highest priority to achieve practical
-disaggregation.
+little conformity has been reached in terms of system design, algorithms, and
+data structures. These face levels differences make it difficult even for
+researchers to determine which problems are the highest priority to achieve
+practical disaggregation.
 
 In this paper we survey prior algorithmic and data structure trends driven by
-shared memory scalability and asks the questions \textit{What techniques apply
-to disaggregation, and which do not?}. This survey covers concurrent data
-structures, NUMA data structures, and RDMA key value stores which make use of
-one sided operations.  Finally we analyse the first few current works on
-disaggregation specific algorithms and analyse their approaches using our
-criteria to evaluate the completeness of their solutions.  A particular focus is
-placed on network optimizations as we consider the network to be the key
-difference between disaggregation and prior system architectures.
+shared memory scalability and ask the question \textit{Which existing techniques
+are key for disaggregation, and what new techniques are forwarding the
+technology?}. This survey covers concurrent data structures, NUMA data
+structures, and RDMA key value stores which make use of one sided operations.
+Finally we analyse the first few current works on disaggregation specific
+algorithms and analyse their approaches using our criteria to evaluate the
+completeness of their solutions.  A particular focus is placed on network
+optimizations as we consider the network to be the key difference between
+disaggregation and prior system architectures.
 
 \section{What this paper is not}
 \label{sec:not}
@@ -802,10 +803,6 @@ prior work, in that due to constraints it relaxes the definitions of it's
 structures, such as the virtual memory space of remote memory itself, which it
 combines into a single contiguous address space. This allows mind to only keep a
 translation entry for each memory server it manages.
-
-
-It's not going to be able to compete with
-SwordBox~\cite{Grant2021InContRes} as it is blocking.
 
 \section{Additional Remote Memory Techniques}
 \label{sec:additional}
