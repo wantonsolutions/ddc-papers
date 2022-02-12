@@ -278,36 +278,36 @@ developed over the past decade~\cite{read-concur-btree,lock-free-btree}.}
 \textbf{Flat Combining~\cite{flat-combine}} Locks and CAS are expensive in their
 own right, when highly contested the real cost of using either mechanism can
 explode as cache protocols, and fairness skew can dominate access costs and
-inflate tail latencies. Flat combining in a technique similar to message
-passing, dynamically creates a leader for each access to a critical section. The
-leader performs the work of all concurrent requesters in a serialized fashion
-and notifies them upon completion. This technique is extremely powerful and is
-used in NUMA algorithms~\cite{black-box-numa} as well as RDMA~\cite{flock}. The
-key insight here is that the expense of a critical section can be amortized
-significantly if is executed within the local confines of a leader, this
-simultaneously allows for batching. Individual cores may not be able to push the
-request limit of RDMA (7 cores for 8byte 120MOPS on CX5), however on any
-particular algorithm they may. In these cases batching will improve performance.
-For instance Clover~\cite{clover} would have benefited from flat combining the
-requests of local threads, a benefit that Sherman takes complete advantage
-of~\cite{sherman}.
-
+inflate tail latencies. Flat combining dynamically creates a leader for each
+access to a critical section. The leader performs the work of all concurrent
+requesters in a serialized fashion and notifies them upon completion. This
+technique is extremely powerful and is used in NUMA
+algorithms~\cite{black-box-numa} as well as RDMA~\cite{flock}. The key insight
+here is that the expense of a critical section can be amortized significantly if
+is executed within the local confines of a leader, this simultaneously allows
+for batching. Individual cores may not be able to push the request limit of RDMA
+(7 cores for 8byte 120MOPS on CX5), however on any particular algorithm they
+may. In these cases batching will improve performance. For instance 
+Clover~\cite{clover} a disaggregated key-value store described in detail later
+on, would see a significant performance boost if it applied flat combining if
+and when its clients were co-located. This benifit is showcased in a recent
+disaggregated B-tree Sherman~\cite{sherman}, discussed later in detail as well.
 
 \textbf{Hopscotch Hashing~\cite{hopscotch}} introduces a cache optimized
 hashmap. Similar to cuckoo hashing it is open addressed. When data collisions
-occur on writes, the write searches for a location by looking for a spot a
+occur on inserts, the algorithm searches for a location by looking for a spot a
 bounded distance away from the hash location. If an empty spot is found the
 value is written, and a marker is written to the original hash location to
 inform readers that there is a value $n$ steps away which collided. If no spot
 is found for the write, the \textit{hopscotch} is invoked and the procedure for
-finding a candidate write is performed iteratively on neighboring buckets
-until a new spot within range is found for the new write. If too many hops are
-taken, the hash doubles in side and all items are rehashed.
+finding a candidate write is performed iteratively on neighboring buckets until
+a new spot within range is found for the new write. If too many hops are taken,
+the hash doubles in side and all items are rehashed.
 
 This algorithm was designed to be cache efficient, as lookups would likely be on
 the same cache line. It has the additional advantage that when a value is
 written, it's location is deterministic within a bound. In remote memory this
-allows for $)(1)$ lookups as the size of the read can be expanded to included
+allows for $O(1)$ lookups as the size of the read can be expanded to included
 the max distance an entry is from its starting location. This structure is
 unfortunate in that writes can take many round trips and complex locking due to
 the number of rewrites when the hopscotch algorithm is invoked.
@@ -360,7 +360,7 @@ can be executed on remote memory. The advantage to RDMA is that the operations
 it supports are general. The downside is that some algorithms are difficult to
 execute using one sided verbs. The prototypical example is pointer chasing which
 requires a round trip for each resolved pointer.
-%% %
+
 The closest space to practical memory disaggregation is RDMA accelerated key
 value stores. In this discipline the expectations of performance have been
 pushed to the absolute limit with many projects approaching the latency and
@@ -404,16 +404,14 @@ uses disaggregated techniques. Senders cache a local copy of the buffers head
 location, in the disaggregated world this pointer would need to be updated in a
 one sided fashion, in FARM the receiver occasionally sends the new pointer
 location back to the sender when more space has been freed up.
-%%
 Farm multiplexes queue pairs to reduce the strain on client side NIC memory.
 While this is not an explicit use of flat combining it does serialize writes on
 the client as an optimization.
-%%
+
 Farm makes use of lock free operations by applying version numbers to each
 transaction item. When async reads come in, they check the version number of the
 data, if the version is old, they retry with a random backoff. Writers apply CAS
 operations locally to the version numbers asynchronously from the readers.
-%%
 However as half of it's structures manipulation requires server side processing
 it is not directly applicable. The hash table Farm uses is applicable. They use
 Hopscotch Hashing~\cite{hopscotch} which places data near keys. This allows a
@@ -423,14 +421,14 @@ if the first instance of pushing read complexity to the client in any paper by
 inflating the size of the read.
 
 
-\textbf{Herd~\cite{herd}} improves upon both FaRM and Pilaf in terms of raw performance by looking
-closely at the RDMA specific behavior of KV stores. It considers the hash
-algorithm carefully to bound the number of one sided reads. And uses RDMA writes
-from server, rather than two sided operations to improve latency. Herds biggest
-contribution is that it closely analyses RDMA performance and choses the verb
-architecture closely. Herd does not apply greatly to disaggregated contexts as
-is fully assumes server side CPUs. However, it's one sided benchmarks are valid
-and valuable for disaggregated designers.
+\textbf{Herd~\cite{herd}} improves upon both FaRM and Pilaf in terms of raw
+performance by looking closely at the RDMA specific behavior of KV stores. It
+considers the hash algorithm carefully to bound the number of one sided reads.
+And uses RDMA writes from server, rather than two sided operations to improve
+latency. Herds biggest contribution is that it closely analyses RDMA performance
+and choses the verb architecture closely. Herd does not apply greatly to
+disaggregated contexts as is fully assumes server side CPUs. However, it's one
+sided benchmarks are valid and valuable for disaggregated designers.
 
 \sg{Herd is the closest an RDMA key value store gets to being an influence on
 disaggregation without crossing the line. I think it might not belong here,
