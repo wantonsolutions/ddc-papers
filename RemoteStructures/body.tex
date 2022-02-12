@@ -96,12 +96,12 @@ et.al~\cite{yelam2022systems}.
 To be explicit about scope this is not a paper covering remote paging or caching
 systems~\cite{fastswap,kona,infiniswap,leap,legoos}. These systems design their
 virtual memory interfaces to incorporate far memory. Each takes into account the
-ratio of local to remote memory, and takes measures to design their swapping
-systems with the cost of far memory in mind for performance purposes.  However
-none share data across processes so their only performance effect from far
-memory is the size of their cache, paging policy, and round trip cost. As such
-each system is primarily constrained by the access pattern of their programs. We
-consider locality optimization to be a single facet of the design space for
+ratio of local to remote memory, and take measures to design their swapping
+systems with the cost of accessing far memory in mind.  However, none share data
+across processes so their only performance effect from far memory is the size of
+their cache, paging policy, and round trip cost. As such each system is
+primarily constrained by the access pattern of their programs. We consider
+locality optimization to be a single facet of the design space for
 disaggregation and address it more fundamentally in
 Section~\ref{sec:techniques}. We reference systems only in terms of their data
 structure design.
@@ -209,12 +209,12 @@ flows through that machines NIC.
   
 \section{Influential Prior Work}
 
-In terms of system design the works mentioned in ~\ref{sec:not}, are doubtlessly
-influential on the state of disaggregation. Here we are focus on the algorithmic
-material. In particular disaggregated and remote memory systems make use of the
-concurrency patterns in lockless data structures. Locking typically costs two
-round trips to remote memory, and course grained locking can cause many
-processes to block. Many lock free data structures use CAS operations for
+In terms of system design the works mentioned in Section~\ref{sec:not}, are
+doubtlessly influential on the state of disaggregation. Here we are focus on the
+algorithmic material. In particular disaggregated and remote memory systems make
+use of the concurrency patterns in lockless data structures. Locking typically
+costs two round trips to remote memory, and course grained locking can cause
+many processes to block. Many lock free data structures use CAS operations for
 serialization, which are implemented as part of the Infiniband RDMA
 specification.
 
@@ -269,15 +269,15 @@ to traverse. A lesson from non-blocking BST is that the complexity of
 non-blocking structures grows quickly as it's invariants become more complex,
 and they are not clear cut candidates for porting to the disaggregated setting.
 
-Various read concurrent, and lock free implementations of B-Tree's have been
-developed over the past decade~\cite{read-concur-btree,lock-free-btree}.
+\sg{Various read concurrent, and lock free implementations of B-Tree's have been
+developed over the past decade~\cite{read-concur-btree,lock-free-btree}.}
 \todo{finish btree}
 
 \subsection{Multicore and NUMA}
 
 \textbf{Flat Combining~\cite{flat-combine}} Locks and CAS are expensive in their
 own right, when highly contested the real cost of using either mechanism can
-skyrocket as cache protocols, and fairness skew can dominate access costs and
+explode as cache protocols, and fairness skew can dominate access costs and
 inflate tail latencies. Flat combining in a technique similar to message
 passing, dynamically creates a leader for each access to a critical section. The
 leader performs the work of all concurrent requesters in a serialized fashion
@@ -286,11 +286,11 @@ used in NUMA algorithms~\cite{black-box-numa} as well as RDMA~\cite{flock}. The
 key insight here is that the expense of a critical section can be amortized
 significantly if is executed within the local confines of a leader, this
 simultaneously allows for batching. Individual cores may not be able to push the
-request limit of RDMA (7 cores for 8byte 120MOPS on CX5), however on
-any particular algorithm they may. In these cases batching will improve
-performance. For instance Clover~\cite{clover} would have benefited from flat
-combining the requests of local threads, a benefit that Sherman takes complete
-advantage of~\cite{sherman}.
+request limit of RDMA (7 cores for 8byte 120MOPS on CX5), however on any
+particular algorithm they may. In these cases batching will improve performance.
+For instance Clover~\cite{clover} would have benefited from flat combining the
+requests of local threads, a benefit that Sherman takes complete advantage
+of~\cite{sherman}.
 
 
 \textbf{Hopscotch Hashing~\cite{hopscotch}} introduces a cache optimized
