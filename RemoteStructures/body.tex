@@ -697,7 +697,9 @@ rigor would be required to achieve the same read semantics.
 \begin{figure}
     \includegraphics[width=0.45\textwidth]{fig/clover_alt.pdf}
 
-    \caption{An alternative data layout for Clovers key value store, which would allow for expanded reads to quickly resolve tails.}
+    \caption{An alternative data layout for Clovers key value store, which would
+    allow for expanded reads to quickly resolve tails.}
+
     \label{fig:clover_alt}
 \end{figure}
 
@@ -1023,6 +1025,36 @@ requires 48 bits per key given Shermans addressing scheme.
 
     \label{fig:middlebox_model}
 \end{figure}
+
+\section{Snoeren Feedback + general todo}
+
+\begin{itemize}
+    
+    \item break the research exam into a structure with key parts. Alex
+    suggested (systems, challenges, solutions) - I think that the correct order
+    is going to be (Challenges, Systems, Solutions). The reason is that we can
+    break up the parts such as round trips, serialization, and write inflation,
+    discuss the systems and some of their mitigation, then introduce the
+    generalized solutions.
+
+    \item Learn how to hyphenate correctly. Alexes lesson one-sided operations.
+    One and sided are both adjectives, is it one operations, is it sided. The
+    answer is sided, so one and sided are hyphenated. Actually learn this.
+
+    \item Naked this - This is reason why we must do $X$. v.s High Tail Latency
+    is the reason we must do x.
+
+    \item it's vs its. I know the difference, I think I just make this mistake
+    while I'm writing.
+
+    \item Alex notes, strikes mean remove, circles mean wtf, added punctuation
+    means add punctuation.
+
+    \item add serialization early in the document so that it's listed as a key problem
+    \item merge the first three sections intro + what this paper is + what it is not into a single section. 
+    
+
+\end{itemize}
 
 
 % \section{notes}
