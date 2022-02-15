@@ -1,14 +1,16 @@
 \section{Introduction}
-Disaggregation is an architectural paradigm which separates a computers
-resources by a network. While the network provides flexibility, it comes at the
-cost of additional access latency
--- no where is this more noticeable than the gap between CPU and main memory.
-Traditionally, access to the memory of a remote machine is guarded by a CPU
-which provides operation serialization, for example RPC calls.  Such
-serialization is impossible in the disaggregated setting as by definition no
-such CPU exists along side memory. This absence causes the cost of traditional
-serialization mechanisms, such as locks, to skyrocket when naively ported to
-remote memory.
+%%
+Disaggregation is an architectural paradigm which separates a computer's
+resources from its CPU by a network. While the network provides flexibility it
+comes at the cost of additional access latency
+-- nowhere is the cost more expensive than between CPU and main memory.
+Increased latency only becomes more problematic when disaggregated memory is
+shared, and contended for. In a non-disaggregated setting, the memory of a
+remote machine is co-located with a CPU which serializes memory accesses, for
+example though RPC calls. Such serialization is impossible in the disaggregated
+setting as by definition no such remote CPU exists.  This absence causes the
+cost of traditional serialization mechanisms, such as locks, to skyrocket when
+naively ported to disaggregated memory.
 
 Fighting high cost coordination is not a new battle. Entire classes of lockless
 data structures have been designed to prevent contention unless true data races
@@ -248,7 +250,7 @@ link the write to a shared data structure using an RDMA CAS operation.
 \multirow{4}{*}{\rotatebox[origin=c]{90}{\shortstack{RDMA \\ Key-Value}}} & pilaf~\cite{pilaf}                                      & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \fullcirc \\ \cdashline{2-9}
          & farm~\cite{farm}                                        & \fullcirc & \nullcirc & \nullcirc & \fullcirc & \fullcirc & \fullcirc  & \nullcirc \\ \cdashline{2-9}
          & herd~\cite{herd}                                        & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc  & \nullcirc \\ \cdashline{2-9}
-         & cell~\cite{cell}                                        & \nullcirc & \nullcirc & \nullcirc & \halfcirc & \fullcirc & \nullcirc  & \fullcirc \\ \cdashline{2-9}
+         & cell~\cite{cell}                                        & \nullcirc & \nullcirc & \nullcirc & \halfcirc & \fullcirc & \nullcirc  & \fullcirc \\ \hline \hline
          % & % fasst~\cite{faast}                                      & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc %& \nullcirc & \nullcirc \\ \hdashline
          % & % erpc~\cite{erpc}                                        & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc \\ \hdashline
          %& storm~\cite{storm}                                      &  &  &  &  &  &  &  \\ \cdashline{2-9}
