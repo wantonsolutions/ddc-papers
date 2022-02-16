@@ -1,5 +1,5 @@
 \section{Introduction}
-%%
+%% High level disaggregation overview, no remote CPU
 Disaggregation is an architectural paradigm which separates a computer's
 resources from its CPU by a network. While the network provides flexibility it
 comes at the cost of additional access latency
@@ -12,65 +12,59 @@ setting as by definition no such remote CPU exists.  This absence causes the
 cost of traditional serialization mechanisms, such as locks, to skyrocket when
 naively ported to disaggregated memory.
 
+%% contention
 Fighting high cost coordination is not a new battle. Entire classes of lockless
-data structures have been designed to prevent contention unless true data races
+data structures were invented to prevent contention unless true data races
 exist, allowing for uncontested access to shared structures.
 ~\cite{simple-fast,lock-free-skip,non-block-binary,read-concur-btree,lock-free-btree}.
-Similarly the advent of NUMA servers lead to the production of new locality
-aware algorithms and data structures which scale to thousands of cores.
+Similarly the advent of NUMA servers lead to the production of locality aware
+algorithms and data structures which scale to thousands of cores.
 ~\cite{linux-scale,black-box-numa}\todo{many cites for numa}. The common thread
 that ties these two contexts to the concept of disaggregation is that memory
-accesses are one sided, and the latency cost course grained serialization is
-high.
+accesses are one-sided (executed directly on memory with no additional
+computation), and the latency cost course grained serialization is high.
 
-Disaggregation extends the notion of NUMA to beyond a single machine and into
-new territories of system architecture. The most striking addition is that high
-speed programmable networks now are an integral part of the design space. The
-choice of networking hardware, in terms of switches, NICs, and transports like
-PCIe have a direct impact on the design of the operating system, algorithms, and
-data structures built to run on
-them~\cite{dredbox,firebox,machine,legoos,supernic}. For example by leveraging
-programmable networking hardware core operating system components like TLB's and
-address protection can be implemented in network~\cite{mind}.  This landscape of
-system and algorithm design choices forces system builders to carefully design
-data structures for specific tasks.  In particular they must prioritize weak
-forms of synchronization whenever possible, and reason with extreme care when
-integrating networking devices as they are highly resource constrained.
+%dissagregation as an archetecture different from prior work
+Disaggregation extends the notion of NUMA to beyond a single machine and into a
+new territory of system architecture. The most striking addition to the design
+space is the inclusion of high-speed programmable networks. The choice of
+networking hardware, in terms of switches, (network interface cards) NICs, and
+transports like PCIe have a direct impact on the design of the operating system,
+algorithms, and data structures built to run on
+them~\cite{dredbox,firebox,machine,legoos,supernic}.  For example Mind used a
+programmable switch for address protection, and as a TLB for disaggregated
+memory~\cite{mind}.  Programming network devices is difficult work as they are
+resource constrained both in terms of general compute and memory, and often lack
+high quality developer tools. These development barriers mean that few
+algorithms and data structures have been developed with programable network
+hardware in mind. Despite the technologies reported benefits, we as a community
+lack principles to determine how to integrate programable networks into
+disaggregated architectures.
 
-% Further it requires application designers to understand their
-% application constraints and make intelligent choices for their data structure
-% usage. While this burden is high, history shows us that it's
-% achievable~\cite{}~\todo{concurrent linked list, big table, ect} when there is a
-% lust for scalability and performance.
+%% lots of work to do, kind of a dead paragraph
+%Disaggregation is still in its infancy, and the community of system designers
+%currently lacks the tools and concepts which will make it a practical reality.
 
-Disaggregation is still in it's infancy, and it currently lacks the tools and
-concepts which will make it accessible to system and application designers.
-While a litany of prototypes have been built which demonstrate the feasibility
-of
-disaggregation~\cite{infiniswap,fastswap,leap,legoos,aifm,kona,reigons,software-far,lite,semeru}
-little conformity has been reached in terms of system design, algorithms, and
-data structures. These face levels differences make it difficult even for
-researchers to determine which problems are the highest priority to achieve
-practical disaggregation.
-
-In this paper we survey prior algorithmic and data structure trends driven by
-shared memory scalability and ask the question \textit{Which existing techniques
-are key for disaggregation, and what new techniques are forwarding the
-technology?}. This survey covers concurrent data structures, NUMA data
-structures, and RDMA key value stores which make use of one sided operations.
-Finally we analyse the first few current works on disaggregation specific
-algorithms and analyse their approaches using our criteria to evaluate the
-completeness of their solutions.  A particular focus is placed on network
-optimizations as we consider the network to be the key difference between
-disaggregation and prior system architectures.
+A litany of prototypes have been built which demonstrate the feasibility of
+disaggregation~\cite{infiniswap,fastswap,leap,legoos,aifm,kona,reigons,software-far,lite,semeru}.
+However, little conformity has been reached in terms of system design and
+expectation. One of the few salient points, is that the cost of coordination is
+high, and is therefore often avoided. The few prototypes which do coordinate
+accesses to far memory have sophisticated and complex techniques for achieving
+serialization~\cite{clover,race,sherman,ford}. Our insight is that nearly all of
+the serialization and synchronization issues associated with memory
+disaggregation are not new, and many practical approaches can be mined from
+prior literature designed to scale software to many cores, or directly access
+the memory of a remote machine. This insight ends where programmable networking
+begins, as little prior work (with the exception of PIMM memory~\cite{pimm}),
+includes programmability on the data path.
 
 %% What this paper is not
-
 This paper is focused on data structures for disaggregation, it is not a systems
 summary.  Many projects exist which are designed for the disaggregated model,
-none of which will be covered in detail. An overview of the state of the state
-of the art systems circa 2022 can be found in Yelam~\cite{yelam2022systems}.
-
+few of which will be covered in detail. An overview of the state of the art
+systems circa 2021 can be found in Yelam~\cite{yelam2022systems}.
+%%
 To be explicit about scope this is not a paper covering remote paging or caching
 systems~\cite{fastswap,kona,infiniswap,leap,legoos}. These systems design their
 virtual memory interfaces to incorporate far memory. Each takes into account the
@@ -83,38 +77,58 @@ locality optimization to be a single facet of the design space for
 disaggregation and address it more fundamentally in
 Section~\ref{sec:techniques}. We reference systems only in terms of their data
 structure design.
-
-This paper is not theory. All data structures investigated within have been
+%%
+Moreover, this paper is not theory. All data structures investigated within have been
 implemented using real hardware. While some papers referenced may be theoretical
 in contribution~\cite{flat-combine,hopscotch,linked-list-cas}, they must be
-backed by a concrete implementation. As such are scope is limited to data
+backed by a concrete implementation. As such our scope is limited to data
 structures which can be implemented using instructions available on commodity
 hardware.
 
 % Paper Goals
 
-The future of resource disaggregation is unclear. Although problems such as the
-memory wall have been cited for over a decade~\cite{blade-server}, and SSD \&
-HDD disaggregation is now commonplace in data centers~\cite{decible}, main
-memory disaggregation still has significant obstacle to overcome before it
-becomes a practical architecture.  Local main memory is still 20x faster than
-remote memory. This is no small latency factor for engineers and scientists to
-contend against. Our goal is to first identify the ideas that enable practical
-disaggregation today. To do so we provide a brief survey of lock free data
-structures, multicore and NUMA, RDMA Key Value Stores with the context of
-disaggregation in mind and make note the the techniques used to enable
-scalability, and reduced latency.
+The future of resource disaggregation is unclear. Thus far the 20x increase in
+latency between local and remote memory has made practical memory disaggregation
+a non-starter. Our goal is to take a small step forward by
+identifying new and existing design principles for disaggregated memory.
+%%
+In this paper we survey prior algorithmic and data structure trends driven by
+shared memory scalability and ask the question \textit{Which existing techniques
+apply to memory disaggregation, and what new techniques are enabling the
+technology?} This survey covers concurrent data structures, NUMA data
+structures, and RDMA key value stores which make use of one-sided operations.
+We then analyse the first few works on disaggregation specific data structures
+and identify the techniques used to achieve high performance in the face of
+contention. When a project does not make use of an identified technique we
+comment on how it may have improved (or reduced) the systems performance. The
+final part of our analysis focuses directly on the serialization mechanisms used
+in each data structure with respect to how programable networking devices may
+accelerate it. In particular we focus on cases where maintaining a small amount
+data structure specific state in network can greatly improve operation
+throughput and latency.
 
-Using this information we break down a set of techniques and describe them more
-generally before applying a more in depth analysis to existing disaggregated
-data structure centric systems. In cases where systems forgot these techniques
-we comment on potential alterations which may improve performance or
-scalability.
+% Although problems such as the memory wall have been
+% cited for over a decade~\cite{blade-server}, and SSD \& HDD disaggregation is
+% now commonplace in data centers~\cite{decible}, main memory disaggregation still
+% has significant obstacle to overcome before it becomes a practical architecture.
+% Local main memory is still 20x faster than remote memory.
 
-We close with discussion topics such as additional considerations for resource
-disaggregation, the potential pitfalls of far memory design, and the potential
-role of programable networking hardware in the future of disaggregation.
+% This is no small
+% latency factor for engineers and scientists to contend against. Our goal is to
+% first identify the ideas that enable practical disaggregation today. To do so we
+% provide a brief survey of lock free data structures, multicore and NUMA, RDMA
+% Key Value Stores with the context of disaggregation in mind and make note the
+% the techniques used to enable scalability, and reduced latency.
 
+% Using this information we break down a set of techniques and describe them more
+% generally before applying a more in depth analysis to existing disaggregated
+% data structure centric systems. In cases where systems forgot these techniques
+% we comment on potential alterations which may improve performance or
+% scalability.
+
+% We close with discussion topics such as additional considerations for resource
+% disaggregation, the potential pitfalls of far memory design, and the potential
+% role of programable networking hardware in the future of disaggregation.
 
 \section{Background}
 
