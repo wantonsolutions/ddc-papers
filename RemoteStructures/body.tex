@@ -36,7 +36,7 @@ programmable switch for address protection, and as a TLB for disaggregated
 memory~\cite{mind}.  Programming network devices is difficult work as they are
 resource constrained both in terms of general compute and memory, and often lack
 high quality developer tools. These development barriers mean that few
-algorithms and data structures have been developed with programable network
+algorithms and data structures have been designed with programable network
 hardware in mind. Despite the technologies reported benefits, we as a community
 lack principles to determine how to integrate programable networks into
 disaggregated architectures.
@@ -53,8 +53,8 @@ high, and is therefore often avoided. The few prototypes which do coordinate
 accesses to far memory have sophisticated and complex techniques for achieving
 serialization~\cite{clover,race,sherman,ford}. Our insight is that nearly all of
 the serialization and synchronization issues associated with memory
-disaggregation are not new, and many practical approaches can be mined from
-prior literature designed to scale software to many cores, or directly access
+disaggregation are not new. We have found that many practical approaches can be
+mined from prior literature aimed at scaling to many cores, or directly access
 the memory of a remote machine. This insight ends where programmable networking
 begins, as little prior work (with the exception of PIMM memory~\cite{pimm}),
 includes programmability on the data path.
@@ -133,34 +133,58 @@ throughput and latency.
 \section{Background}
 
 %Disaggregated Model
-Disaggregation is a general term used for the separation
-of resources by a network. The composition and topology of the network plays a
-large role in how a disaggregated computer will manifest. The disaggregated
-model we consider most prevalent is that of the rack scale computer. In the rack
-scale design servers in a rack have a resource role - compute, memory, storage,
-accelerator. Each server is connected via a fast network i.e. 100-400Gbps
-ethernet or above. The topology of the rack is up for debate, however many
-suggest that each server is interconnected with a traditional TOR, or with a
-special purpose middlebox for memory traffic~\cite{disandapp}. Proposals for
-other topologies such as torus exist, however we scope ourselves to the prior
-configuration. In the rack scale model we consider all memory traffic in a rack
-transits a centralized switch, and all the traffic for an individual machine
-flows through that machines NIC.
+Disaggregation is a general term used for the separation of resources by a
+network. The composition and topology of the network plays a large role in how a
+disaggregated computer will manifest. The disaggregated model we consider most
+prevalent is that of the rack-scale computer. In the rack scale design servers
+in a rack have a resource role - compute, memory, storage, accelerator. Each
+server is connected via a fast network i.e. 100-400Gbps ethernet or above. The
+topology of the rack is up for debate, however many suggest that each server is
+interconnected with a traditional TOR, or with a special purpose middlebox for
+memory traffic~\cite{disandapp}. Proposals for other topologies such as torus
+exist, however we scope ourselves to the prior configuration. In the rack scale
+model we consider all memory traffic in a rack transits a centralized switch,
+and all the traffic for an individual machine flows through that machines NIC.
+Figure~\cite{fig:rack-scale} provides a high level overview of this system
+architecture.
 
-%What is RDMA
-Before discussing RDMA key value stores lets consider the question \textbf{Why
-use RDMA?} There are a variety of ways to manipulate remote memory,
-GMS~\cite{gms} would suggest that we coordinate using full networking stack,
-however in the context of disaggregation we assume no remote CPU's to execute
-the stack. We could connect via a cache coherent interconnect such a
-Kona~\cite{kona} which makes use of cache lines. RDMA is a middle ground. The
-RDMA spec gives a set of \textit{verbs} which are memory operations that the NIC
-can execute. These verbs are similar in some respects to RPC calls, or simple
-instructions. As long as an algorithm can be described using the RDMA calls it
-can be executed on remote memory. The advantage to RDMA is that the operations
-it supports are general. The downside is that some algorithms are difficult to
-execute using one sided verbs. The prototypical example is pointer chasing which
-requires a round trip for each resolved pointer.
+
+\begin{figure}
+    \begin{centering}
+    \includegraphics[width=0.45\textwidth]{fig/rack.pdf}
+
+    \caption{ A rack-scale computer is a single rack of network connected
+    machines, each with a specific purpose, compute, memory, or storage. Each
+    machine is equipped with a high performance NIC (100Gbps+), interconnected
+    with a top of rack switch. Many designs include some degree of
+    programmability in the network~\cite{disandapp}.
+    }
+    \end{centering}
+    \label{fig:rack-scale}
+\end{figure}
+
+Disaggregation assumes that memory operations, i.e. reads and writes are issued
+over the network rather than across a traditional memory bus. RDMA is a popular
+networking technology which allows clients to read and write directly to a
+servers memory without CPU involvement. RDMA is also known for having high
+throughput and low latency. Due to it's direct applicability most memory
+disaggregation proposals assume RDMA capable networks as an essential
+architectural building block. However, alternative interconnect proposals exist.
+
+GMS~\cite{gms} suggests that global memory be maintained alongside an entire
+networking stack. In pure resource disaggregation, no remote CPU's exist which
+exempts this approach.  Alternatively, rather than explicit reads and writes
+cache coherence algorithms could be used to fetch data from remote memory on
+custom interconnects such as in Kona~\cite{kona}.
+
+RDMA is a middle ground. The RDMA spec gives a set of \textit{verbs} which are
+memory operations that the NIC can execute. These verbs are similar in some
+respects to RPC calls, or simple instructions. As long as an algorithm can be
+described using the RDMA calls it can be executed on remote memory. The
+advantage to RDMA is that the operations it supports are general. The downside
+is that some algorithms are difficult to execute using one sided verbs. The
+prototypical example is pointer chasing which requires a round trip for each
+resolved pointer.
 
 The closest space to practical memory disaggregation is RDMA accelerated key
 value stores. In this discipline the expectations of performance have been
