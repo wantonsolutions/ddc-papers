@@ -177,41 +177,79 @@ exempts this approach.  Alternatively, rather than explicit reads and writes
 cache coherence algorithms could be used to fetch data from remote memory on
 custom interconnects such as in Kona~\cite{kona}.
 
-RDMA is a middle ground. The RDMA spec gives a set of \textit{verbs} which are
-memory operations that the NIC can execute. These verbs are similar in some
-respects to RPC calls, or simple instructions. As long as an algorithm can be
-described using the RDMA calls it can be executed on remote memory. The
+RDMA is a middle ground. The RDMA specification gives a set of \textit{verbs}
+which are memory operations that the NIC can execute. These verbs are similar in
+some respects to RPC calls, or simple instructions. As long as an algorithm can
+be described using the RDMA calls it can be executed on remote memory. The
 advantage to RDMA is that the operations it supports are general. The downside
 is that some algorithms are difficult to execute using one sided verbs. The
 prototypical example is pointer chasing which requires a round trip for each
 resolved pointer.
 
-The closest space to practical memory disaggregation is RDMA accelerated key
-value stores. In this discipline the expectations of performance have been
-pushed to the absolute limit with many projects approaching the latency and
-throughput of raw RDMA. A typical aim is to reduce server side CPU utilization
-which demands the use of one sided operations. These works make careful
-selection of data structures for efficient integration with
-RDMA~\cite{hopscotch,cuckoo}, and select communication protocols for RDMA which
-promote the highest performance the current generation of hardware can
-offer~\cite{herd,storm}. The direct applicability of prior KV-store work and
-disaggregation end when two sided approaches like RPC or two sided RDMA are
-utilized for serialization. For example, a common paradigm is to have the reads
-be performed async using one sided operations, while the writes are serialized
-by a two sided operation~\cite{pilaf}. This allows a CPU to perform the locking
-and execute multi step critical sections, such as pointer chasing, with low
-latency.
+The research space closest to practical memory disaggregation is RDMA key-value
+stores (KVS). The performance expectation for their read and write operations is
+typically hardware line rate, or its packet per second limit. Even a few CPU
+instructions per packet can drop performance below line rate, so to improve
+performance and reduce CPU utilization, key value stores use one sided RDMA
+operations. These KVS make careful selection of their data structures for
+efficient integration with RDMA~\cite{hopscotch,cuckoo}, and select RDMA
+communication protocol (reliable connections, unreliable connections, unreliable
+datagrams) which promote the highest performance the current generation of
+hardware can offer~\cite{herd,storm}. The direct applicability of prior KVS work
+and disaggregation end when two sided approaches like RPC or two sided RDMA are
+utilized for serialization. For example, reads can be performed asynchronously
+using one sided operations, while writes are serialized by a two sided
+operation~\cite{pilaf}. This allows a CPU to perform the locking and execute
+multi step critical sections, such as pointer chasing, with low latency.
+Unfortunately these hybrid approaches are not available to pure disaggregated
+systems.
 
 
 \todo{Programmable Networking}
 
 \section{Challenges}
-
-The big challenge is latency, followed by sharing and contention. After that
-things like throughput, memory usage, network bandwidth, isolation ect come
-next.
-
 \todo{write a challenges section}
+
+The largest challenge in realizing disaggregation is latency. We have arrived at
+a point in history where disaggregation has become feasible only due to dramatic
+improvements in networking hardware which allow for ultra low latency. This
+trend is expected to continue, and the overhead of remote memory will continue
+to shrink as a function of network hardware performance.  Even when the network
+hardware technology has peaked, and remote memory is at it's lowest cost, it
+will still be much more expensive than a local memory access due to physical
+limitations such as the speed of light. In the expectation of eventual
+reasonable, but not low cost disaggregated memory access we focus on the
+fundamental challenges that will still need to be solved for general purpose
+computing. 
+
+The next big challenge is sharing and contention. While these are problems in
+any multi processor system their negative effects are multiplied when each
+memory access requires additional latency. We focus on techniques to alleviate
+sharing and contention latency. These technqiues often come with tradeoffs, such
+as additional bandwidth, or memory which complicate the evaluation of effective
+techniques.
+
+\textbf{Round Trip Locks}
+
+Local serialized locking scales poorly to disaggregation. Acquiring a lock,
+performing work, and then unlocking, is not expensive when memory is only a few
+nanoseconds away, but when each operation represents a round trip its cost
+skyrockets. The common approach takes 4 round trips. The first to acquire the
+lock, the second to read the required data, another to write an update, and a
+final message to unlock. Amortizing this cost is key in disaggregation. Using
+common concurrency patterns the cost can be reduced. For instance it can be
+reduced to 3 by performing the read first, then the write, and then
+opportunistically attempting a lock which commits the write. Typically this will
+fail if the read was stale, or another thread move the data structure forward
+concurrently. This can be further improved by amortizing the reads and writes.
+For instance reads can be done out of band with writes to attempt and keep a
+local cache up to date. On writes, the write is performed simultaneously with
+the opportunistic lock. In the best case this reduces the observed latency on a
+write to a single round trip, but it can easily degrade to many retires if write
+or read data is contested. Clover~\cite{clover} Caches metadata locally and
+performs reads of the metadata out of band. Writes require two round trips, the
+first to perform the write to a processes isolated location, and a second to
+link the write to a shared data structure using an RDMA CAS operation.
 
 
 %Section Pitfalls of some technqiues
@@ -246,30 +284,6 @@ RDMA locks lack fairness. Using existing CAS and FAA locking there is not a
 reasonable way to achieve fair locking with low round trip times. Thus any RDMA
 concurrent structure leveraging CAS locks will potentially lead to starvation
 and high tail latency.
-
-\textbf{Round Trip Locks}
-
-Local serialized locking scales poorly to disaggregation. Acquiring a lock,
-performing work, and then unlocking, is not expensive when memory is only a few
-nanoseconds away, but when each operation represents a round trip its cost
-skyrockets. The common approach takes 4 round trips. The first to acquire the
-lock, the second to read the required data, another to write an update, and a
-final message to unlock. Amortizing this cost is key in disaggregation. Using
-common concurrency patterns the cost can be reduced. For instance it can be
-reduced to 3 by performing the read first, then the write, and then
-opportunistically attempting a lock which commits the write. Typically this will
-fail if the read was stale, or another thread move the data structure forward
-concurrently. This can be further improved by amortizing the reads and writes.
-For instance reads can be done out of band with writes to attempt and keep a
-local cache up to date. On writes, the write is performed simultaneously with
-the opportunistic lock. In the best case this reduces the observed latency on a
-write to a single round trip, but it can easily degrade to many retires if write
-or read data is contested. Clover~\cite{clover} Caches metadata locally and
-performs reads of the metadata out of band. Writes require two round trips, the
-first to perform the write to a processes isolated location, and a second to
-link the write to a shared data structure using an RDMA CAS operation.
-
-
 
 
 
