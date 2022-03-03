@@ -253,9 +253,11 @@ cache up to date.  Writes can be executed with the expectation that the
 asynchronously read data is up to date, and the opportunistic commit operation
 can be run simultaneously with the write. In the best case this reduces the
 observed latency on a write to a single round trip, but it can easily degrade to
-many retires if write or read data is contested. Clover follows this last
-pattern closely, and achieves good performance on read heavy workloads, but
-suffers when many writes occur~\cite{clover}.
+many retires if write or read data is contested. 
+
+% Clover follows this last
+% pattern closely, and achieves good performance on read heavy workloads, but
+% suffers when many writes occur~\cite{clover}.
 
 
 %Section Pitfalls of some technqiues
@@ -310,25 +312,25 @@ data structures of the system.
 % some headroom for processing with x number of cores. This gap is the processing
 % gap that we can use to resolve contention.
 
-\textbf{RDMA Atomics} Relying on RDMA atomics may lead a design to reach
-artificial bottlenecks. RDMA atomics perform at roughly half the rate of
-identically sized writes. For example Clover~\cite{clover} under extreme
-contention would suffer from the CAS bottleneck. Almost every remote structure
-uses CAS to some extent~\todo{Breif Summary of CAS papers}. Papers such as
-Sherman~\cite{sherman} have noted that they can get better single location CAS
-and FFA performance by utilizing device mapped memory. This is a nice
-performance improvement, but it's still comparatively slow by my own
-measurements.
-
-CAS operations are slightly faster than FAA by my measurements when contested.
-They can be used in concert to achieve differing levels of performance with
-different semantics. For example CAS to lock, and FAA to unlock.
-
-RDMA locks lack fairness. Using existing CAS and FAA locking there is not a
-reasonable way to achieve fair locking with low round trip times. Thus any RDMA
-concurrent structure leveraging CAS locks will potentially lead to starvation
-and high tail latency.
-
+\textbf{RDMA Atomics}
+%%
+The RDMA specification includes atomic operations for one-sided serialization.
+These operations present their own unique challenges which are discussed here as
+RDMA is the primary technology upon which disaggregated systems have been built.
+Atomic performance in terms of packets per second is roughly half of read and
+write performance for the same sized data. The performance of operations drops
+further if the data is contested by many RDMA connections. Reaching the atomic
+bottleneck is not common in opportunistic algorithms as the pace of attempted
+lock operations is offset by reads and writes~\cite{clover}. In contrast
+algorithms that use traditional locking can easily reach this limit, as a
+spinlock access requires atomics to be continuously issued until the lock is
+acquired. Faster locking operations are possible if the lock is located on
+device mapped memory, this prevents each lock request from making two PCIe round
+trips. Network devices such as ConnectX series NICs expose this memory to
+programmers, but it is limited, and demands that data structure which want to
+use it have their memory layout organized accordingly~\cite{sherman}. One final
+pitfall of RDMA atomics for locks is that they lack fairness. This can lead to
+extreme tail latencies which is not ideal for memory operations.
 
 
 \section{Solutions}
@@ -369,39 +371,39 @@ and high tail latency.
     \label{tab:1}
 \end{table*}
 
+Reducing round trips requires algorithmic and data structure improvements. A
+common tactic to reduce round trips is to reduce the precision required by an
+operation. Reduced precision can enable operations to succeed even when they are
+executed with stale information. There is always a tradeoff when precision is
+reduced, it can incur additional bandwidth, or increase a data structures memory
+footprint. Less generalizable strategies take advantage of environment specific
+conditions to improve performance, such as resolving conflicts locally when CPUs
+are colocated. In this section we overview common techniques used to reduce
+round trip times. These techniques are not unique to disaggregated literature.
+Work on current data structures, NUMA systems, and RDMA KVS have paved the way
+to memory disaggregation. We reference systems which utilize these techniques in
+this section, prior to covering each system in detail in
+section~\ref{sec:systems}.
 
-There is no dragon more fierce in the cave of memory disaggregation than
-latency. The most focus and work must done in this space to reduce it's cost
-even at the high price of other resources such as memory and network bandwidth.
-A common trait of latency reducing techniques is that they trade off some degree
-of precision for speed. Perhaps the biggest latency cost in remote memory is the
-round trip time~\cite{design-far-memory-struct}, ideally all operations for
-remote memory can complete in $O(1)$ complexity. This is very difficult for
-pointer based data structures as each pointer resolution requires a round trip.
-The approaches described here typically aim to reduce a round trip by caching
-relevant information, laying out data structures so that large reads can capture
-the necessary information, 
 
-
-\subsection{Read Inflation} 
-\label{sec:readsize}
+\subsection{Read Inflation} \label{sec:readsize}
 %%
-One tradeoff that can be made to accelerate writes is to make
-them sloppy and push the complexity to the read. This adds a bit of computation
-as the reader must compose the information they require from the unsorted read.
-As a simple example imagine a multi processes sorted list. Each insert is
-expensive if it must be globally coordinated. However it's cheap if each process
-just maintains it's own locally sorted list. A call to \textit{max} which
-returns the max globally could peek at the heads of each list, and then locally
-compute the max from those. For $n$ processes this inflates the cost of the read
-by $n$ in bandwidth however it removes the need for coordination. In general I
-believe that this holds for all algorithms and data structures. Consider that any
-structure can be represented by the set of operations performed on it. If each
-write operation is append to a log in memory, with a globally orderable
-timestamp then an arbitrary number of processes can have unorganized and full
-write throughput, and push the composition of the data structure to each read,
-where the entire log of each process is read, and executed locally in it's
-entirety.
+Writes can be accelerated by making them sloppy and expanding reads so that they
+capture the sloppy writes and then recompose them into a coherent state. The
+recomposition adds computational overhead to reads which is dependent on the
+data structure, and overarching operation being run. As an example consider a
+multi processes sorted list. Each insert is expensive if it must be globally
+coordinated. However it's cheap if each process just maintains it's own locally
+sorted list. A call to \textit{max} which returns the max globally could peek at
+the heads of each list, and then locally compute the max from those. For $n$
+processes this inflates the cost of the read by $n$ in bandwidth however it
+removes the need for coordination. In general I believe that this holds for all
+algorithms and data structures. Consider that any structure can be represented
+by the set of operations performed on it. If each write operation is append to a
+log in memory, with a globally orderable timestamp then an arbitrary number of
+processes can have unorganized and full write throughput, and push the
+composition of the data structure to each read, where the entire log of each
+process is read, and executed locally in it's entirety.
 
 Algorithms like hopscotch hashing~\cite{hopscotch} (used in Farm~\cite{farm})
 and Robinson hashing~\cite{robinhood} are designed to have good cache locality.
@@ -498,6 +500,8 @@ version numbers of each read do not match, the read is aborted.
 \section{Lesser Remote Memory Techniques}
 \label{sec:additional}
 
+\todo{This section is extremely rough}
+
 Section~\ref{sec:techniques} describes the top seven techniques we found to be
 most used, and effective in our literature survey. However there are many more
 common considerations which we briefly detail here.
@@ -570,6 +574,7 @@ non-pointer based structures like hopscotch hashes~\cite{hopscotch}.
 Introduce the remote memory techniques at a high level with small examples for each
 
 \section{Systems}
+\label{sec:systems}
 \todo{rewrite}
 In terms of system design the works mentioned in Section~\ref{sec:not}, are
 doubtlessly influential on the state of disaggregation. Here we are focus on the
@@ -845,14 +850,13 @@ consistent state are used by Cell.
 
 
 %currently just a jotting area for ideas.
-\section{Remote Memory Techniques}
 
 
-\section{Disaggregated Datastructures}
+\subsection{Disaggregated Systems}
 
-\subsection{Clover}
-
-Clover is a key value store designed for persistent, disaggregated memory. All
+\textbf{Clover~\cite{clover}}
+%%
+is a key value store designed for persistent, disaggregated memory. All
 of it's remote memory operations are performed via one side RDMA, with the
 exception of two sided metadata operations sent to non-disaggregated metadata
 servers. This architecture is reached by an empirical evaluation of 4
@@ -873,8 +877,8 @@ server. Clover's key-value store has no predetermined or canonical layout, while
 this is not necessarily a relaxed layout, the use of a partitioned address space
 for writes is a clever way to reduce write conflicts.
 
-
-\textbf{Opportunities:} Clover does not make use of self verifying data
+%%\textbf{opprotunities}
+Clover does not make use of self verifying data
 structures, with the exception of it's pDPM direct. Clover writes take two round
 trips in the common case, the first to write, the second to CAS. This ensure the
 write completes prior to committing with a CAS. Were clover to have a self
@@ -911,9 +915,9 @@ rigor would be required to achieve the same read semantics.
 \end{figure}
 
 
-\subsection{RDMA Write Conscious Hashing (RACE~\cite{one-sided-hash})}
-
-RACE designes an RDMA optimized key-value store for remote memory. RACE is
+\textbf{RACE~\cite{one-sided-hash}}
+%%
+designes an RDMA optimized key-value store for remote memory. RACE is
 lock-free and makes use of additional memory to reduce conflicts and contention.
 RACE notes that prior hash solutions can incur multiple round trips when the
 lookups fail, and that if the index must shuffle data such as cuckoo and
@@ -963,9 +967,9 @@ heavy.
 possible to read invalid data via \textbf{race} condition}
 
 
-\subsection{Sherman B-Tree~\cite{sherman}}
-
-The Sherman B-Tree is a complete implementation of at B-Tree for remote memory.
+\textbf{Sherman B-Tree~\cite{sherman}}
+%%
+is a complete implementation of a B-Tree for remote memory.
 It makes use of many optimizations for remote memory, including some techniques
 not explicitly included in our high level comparison of techniques. Sherman
 makes use of optimistic concurrency in order to implement locks. While they
@@ -984,14 +988,16 @@ complex in that they do no contain consistent values. For transactional reads to
 occur reads must also lock. This is a strict lessening of constancy which may
 not be desireable for future applications.
 
-\subsection{Ford~\cite{ford}}
-
+\textbf{Ford~\cite{ford}}
+%%
 (This paper is obviously relevant, but the preprint is not out yet. Yizhou is
 going to work with them and may get me a copy prior to the RE deadline.)
 
-\subsection{MIND~\cite{mind}}
+\subsection{Network Centralized Dissagregation}
 
-Mind differs from other remote memory systems in that it uses the network as a
+\textbf{MIND~\cite{mind}}
+%%
+differs from other remote memory systems in that it uses the network as a
 centralized location to serialize access to disaggregated memory. Mind acts as an
 MMU providing isolation and protection to processes running on endhosts. It us  
 It makes use of the MSI cache coherence protocol (Modified, Shared, Invalid)
