@@ -204,67 +204,111 @@ multi step critical sections, such as pointer chasing, with low latency.
 Unfortunately these hybrid approaches are not available to pure disaggregated
 systems.
 
-
 \todo{Programmable Networking}
 
 \section{Challenges}
-\todo{write a challenges section}
 
 The largest challenge in realizing disaggregation is latency. We have arrived at
 a point in history where disaggregation has become feasible only due to dramatic
-improvements in networking hardware which allow for ultra low latency. This
-trend is expected to continue, and the overhead of remote memory will continue
-to shrink as a function of network hardware performance.  Even when the network
-hardware technology has peaked, and remote memory is at it's lowest cost, it
-will still be much more expensive than a local memory access due to physical
-limitations such as the speed of light. In the expectation of eventual
-reasonable, but not low cost disaggregated memory access we focus on the
-fundamental challenges that will still need to be solved for general purpose
-computing. 
+improvements in networking hardware which allow for ultra low latency access to
+remote memory. This trend is expected to continue, and the overhead of remote
+memory will continue to shrink as a function of network hardware performance.
+Even when network hardware technology has peaked, and remote memory is at
+it's lowest cost, it will still be much more expensive than a local memory
+access due to physical limitations such as the speed of light. In the
+expectation of eventual reasonable, but not low cost disaggregated memory access
+we focus on the fundamental challenges that will still need to be solved for
+general purpose computing. 
 
-The next big challenge is sharing and contention. While these are problems in
-any multi processor system their negative effects are multiplied when each
-memory access requires additional latency. We focus on techniques to alleviate
-sharing and contention latency. These technqiues often come with tradeoffs, such
-as additional bandwidth, or memory which complicate the evaluation of effective
-techniques.
+The next big challenge is sharing and contention. Disaggregation suffers the
+same issues around sharing and contention that any multiprocessor system does,
+however the effects are more severe due to increased latency of remote memory.
+Naively ported mutual exclusion algorithms like spinlocks incur huge overheads
+as each failed attempt to acquire the lock results in an additional round trip.
+The holy grail of remote memory operations is an $O(1)$ algorithm for reading
+and writing. Each solution in section~\ref{sec:solutions} is an approach to
+reduce the number of round trips and thereby get closer to an $O(1)$ common case
+read and write.  We focus on techniques to alleviate sharing and contention
+latency. These techniques often come with tradeoffs, such as additional
+bandwidth, or memory which complicate the evaluation of effective techniques.
 
-\textbf{Round Trip Locks}
-
-Local serialized locking scales poorly to disaggregation. Acquiring a lock,
-performing work, and then unlocking, is not expensive when memory is only a few
-nanoseconds away, but when each operation represents a round trip its cost
-skyrockets. The common approach takes 4 round trips. The first to acquire the
-lock, the second to read the required data, another to write an update, and a
-final message to unlock. Amortizing this cost is key in disaggregation. Using
-common concurrency patterns the cost can be reduced. For instance it can be
-reduced to 3 by performing the read first, then the write, and then
-opportunistically attempting a lock which commits the write. Typically this will
-fail if the read was stale, or another thread move the data structure forward
-concurrently. This can be further improved by amortizing the reads and writes.
-For instance reads can be done out of band with writes to attempt and keep a
-local cache up to date. On writes, the write is performed simultaneously with
-the opportunistic lock. In the best case this reduces the observed latency on a
-write to a single round trip, but it can easily degrade to many retires if write
-or read data is contested. Clover~\cite{clover} Caches metadata locally and
-performs reads of the metadata out of band. Writes require two round trips, the
-first to perform the write to a processes isolated location, and a second to
-link the write to a shared data structure using an RDMA CAS operation.
+\textbf{Mutual Exclusion and Round Trips:} 
+%%
+Most common techniques for locking
+and mutual exclusion scale poorly to disaggregated memory. For instance the
+common approach of acquiring a lock, performing work, and then unlocking, is not
+expensive when memory is only a few nanoseconds away, but when the lock is in
+remote memory each test operation requires a round trip.  Reading, and then
+writing to mutually exclusive data requires at least four round trips. The first
+to acquire the lock, the second to read the data, another to write an update,
+and a final message to unlock.  Amortizing this cost is essential for
+disaggregation. The cost can be reduced using patterns common to opportunistic
+algorithms. The same operation requires only three round trips by by performing
+the read first, then the write, and finally an opportunistic commit operation to
+make the write visible to other threads. Typically this will fail if the read
+was stale, or another thread concurrently wrote to the data structure. This can
+be further improved by amortizing the reads and writes. For instance reads of
+shared data can be executed periodically out of band with writes to keep a local
+cache up to date.  Writes can be executed with the expectation that the
+asynchronously read data is up to date, and the opportunistic commit operation
+can be run simultaneously with the write. In the best case this reduces the
+observed latency on a write to a single round trip, but it can easily degrade to
+many retires if write or read data is contested. Clover follows this last
+pattern closely, and achieves good performance on read heavy workloads, but
+suffers when many writes occur~\cite{clover}.
 
 
 %Section Pitfalls of some technqiues
-\textbf{Centralized Serialization} My approach uses a centralized serialization
-point to alleviate coordination. However it has been shown that doing all the
-work by a centralized core is slower than a carefully crafted concurrent
-solution~\cite{near-memory-structs}. The insight here is that if we have a core
-close to memory it can do things like pointer chasing faster than remote. They
-demonstrate that PIMs are not sufficient to solve far memory problems. But it
-will become bogged down at some point due to being centralized. That's when a
-concurrent algorithm with less contention moves faster. The key thing about this
-centralized point, is that it must have excess space above line rate with which
-to coordinate. For example in ~\cite{fairnic}[Figure 2] we show that there is
-some headroom for processing with x number of cores. This gap is the processing
-gap that we can use to resolve contention.
+\textbf{Centralized Serialization} 
+%%
+An attentive reader may now ask \textit{If the cost of round trips is so
+extreme, why not serialize access to remote memory through centralization?} The
+simple answer is that any centralized solution is itself an explicit bottleneck.
+The aforementioned Clover shows experimentally that a centralized solution can
+only achieve half of the read throughput that their decentralized solution
+can~\cite{clover}. Similar prior work on near memory computing showed that using
+traditional serialization methods, such as locks, also quickly bottleneck in
+comparison to well crafted opportunistic algorithms~\cite{near-memory-structs}.
+If this were not the case, a reasonably simple solution for serializing access
+to disaggregated memory would be to port existing RPC based approaches like
+Herd~\cite{herd} to a SmartNIC on each memory server. As shown in FairNIC and
+Ipipe the number of additional cycles that SmartNIC has to process packets is
+slim, and any additional work causes a drop in performance~\cite{fairnic}[Figure
+2]~\cite{ipipe}[Figure 4]. Because centralized solutions have an inherent
+bottleneck utilizing them is a balancing act. Figure~\ref{fig:middlebox_model}
+provides an abstract visualization of the tradeoff between centralized
+serialization and performance. Some systems may benefit from in network
+serialization, while others may falter if the cost or resolving their conflicts
+is too high. The cost to resolve conflicts is directly related to underlying
+data structures of the system.
+
+\begin{figure}
+    \includegraphics[width=0.48\textwidth]{fig/in_network_tradeoff.pdf}
+
+    \caption{The tradeoff between in network serialization, and end-to-end
+    techniques. On the left is a model of of hardware performance vs the work
+    required per packet to resolve contention. On the X axis the cost of
+    resolving contention in two system A and B are marked. On the right, the
+    benefit of applying contention resolution to these systems. System only has
+    a benefit as the cost to resolve it's conflicts are below the hardware cost.
+    System B loses performance with the centralized solution while contention is
+    low.}
+
+    \label{fig:middlebox_model}
+\end{figure}
+
+% My approach uses a centralized serialization
+% point to alleviate coordination. However it has been shown that doing all the
+% work by a centralized core is slower than a carefully crafted concurrent
+% solution~\cite{near-memory-structs}. The insight here is that if we have a core
+% close to memory it can do things like pointer chasing faster than remote. They
+% demonstrate that PIMs are not sufficient to solve far memory problems. But it
+% will become bogged down at some point due to being centralized. That's when a
+% concurrent algorithm with less contention moves faster. The key thing about this
+% centralized point, is that it must have excess space above line rate with which
+% to coordinate. For example in we show that there is
+% some headroom for processing with x number of cores. This gap is the processing
+% gap that we can use to resolve contention.
 
 \textbf{RDMA Atomics} Relying on RDMA atomics may lead a design to reach
 artificial bottlenecks. RDMA atomics perform at roughly half the rate of
@@ -1049,16 +1093,6 @@ when a search packet is found, if the key gets a hit, the read is transformed in
 location and size to the destination address of the true read. For hot keys this
 requires 48 bits per key given Shermans addressing scheme.
 
-\begin{figure}
-    \includegraphics[width=0.45\textwidth]{fig/middlebox_model.png}
-
-    \caption{Middlebox only support a bounded number of cycles per operation
-    before their performance drops below line rate. A programs performance can
-    only benefit from middlebox intervention if it's requirements per operation
-    fall below this threshold.}
-
-    \label{fig:middlebox_model}
-\end{figure}
 
 \section{Conclusion}
 
