@@ -414,24 +414,51 @@ analysis into other cache optimized data structures may be fruitful in finding
 new candidate data structures for disaggregation.
 
 
-\subsection{Relaxed Layout} Data structures with strict semantics such as
-ordering are difficult to maintain under contention as potentially many elements
-must be read, and organized to achieve an operation such as an insert. For
-example Sherman~\cite{sherman} uses relaxed ordering in it's B-tree buckets so
-that writes can succeed more frequently. Similarly
-One-Sided-Hash~\cite{one-sided-hash} uses associative cashing and power of two
-in order to allow for multiple write locations. By relaxing the structural
-invariants higher write performance is achieved. However this comes at the cost
-of read inflation~\ref{sec:readsize} as the correct results must be composed
-from an unorganized read. In the case of sherman, relaxing the structure has the
-effect of reducing write amplification.
+\subsection{Relaxed Layout} 
 
+Somewhat ironically while tight locality invariants enable $O(1)$ reads, loose
+locality invariants reduce the price of writes. Data structures with strict
+semantics such as ordering are difficult to maintain under contention as
+potentially many elements must be read, and reorganized to achieve an operation
+such as an insert.
 
-\subsection{Precomputation} Some optimization are easy with preoccupation. Consider
-Clio's one level page table~\cite{clio}. Normally a walk would be required, however they
-access the page with an O(1) hash. To do so they must avoid collisions. They
-push the complexity to malloc which tries continuously to make an virtual address
-allocation until it finds one without a hash collision.
+For example Sherman~\cite{sherman} uses relaxed ordering in it's B-tree buckets
+so that writes can succeed more frequently in $O(1)$. This also has the effect
+of reducing write amplification as only a single entry is written, and not an
+entire ordered bucket. Similarly One-Sided-Hash~\cite{one-sided-hash} uses
+associative cashing and power of two in order to allow for multiple write
+locations. By relaxing the structural invariants higher write performance is
+achieved. A structures overall performance will be impacted by how data layout
+is relaxed. As detailed in the prior section if the layout retains locality
+reads can remain $O(1)$ at the cost of bandwidth. If however a relaxed layout
+means that a writes location is determined by a traversal of many pointers it
+will skewer read performance.
+
+\sg{Techniques which amortize read cost may be benificial for read performance,
+for example if reading data the first time requires a high cost, but it becomes
+$O(1)$ after being resolved it may be a worthwhile tradeoff. For such tactics to succeed }
+
+\subsection{Precomputation} 
+
+With careful design some data accesses can be optimized by adding computational
+work to clients. One example is Clios single level page table~\cite{clio}.
+Traditional page tables require a pointer based walk to resolve virtual
+addresses. A page table walk is expensive for disaggregated memory as each
+levels resolution requires a round trip. Clio achieves an $O(1)$ page table
+lookup by pushing the complexity to malloc. The page table is a hash of virtual
+addresses, calls to malloc generate candidate virtual addresses until one with
+no collisions in the hash is found. This allows for all page table lookups to
+occur with a single round trip.
+
+Trading off algorithmic complexity with computation complexity is largely
+unexplored territory, fortunately some design pitfalls can be determined with
+speculation. Any degree of global churn in a data structure, such as resizing a
+hash table will have amplified cost if large amount of precomputation work has
+been done to produce the current hash. Here any strategy which preserve the work
+will be beneficial in overall system performance. Precomputation should also be
+pushed to uncommon tasks, or tasks which are not latency sensitive.
+Precomputation in the data path may result in performance losses greater than
+the avoided round trips.
 
 \subsection{Optimistic Concurrency} Round trip times are extremely expensive.
 Traditional locking requires a round trip for acquisition and for release making
