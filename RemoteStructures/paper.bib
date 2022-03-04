@@ -582,6 +582,19 @@ keywords = {numa architecture, black-box techniques, log, replication, concurren
   bibsource = {dblp computer science bibliography, https://dblp.org}
 }
 
+@inproceedings {ford,
+author = {Zhang, Ming and Yu Hua, Pengfei Zuo, Lurong Liu},
+title = {{FORD}: Fast One-sided {RDMA-based} Distributed Transactions for Disaggregated Persistent Memory},
+booktitle = {20th USENIX Conference on File and Storage Technologies (FAST 22)},
+year = {2022},
+isbn = {978-1-939133-26-7},
+address = {Santa Clara, CA},
+pages = {51--68},
+url = {https://www.usenix.org/conference/fast22/presentation/zhang-ming},
+publisher = {USENIX Association},
+month = feb,
+}
+
 
 @inproceedings{Grant2021InContRes,
 author = {Grant, Stewart and Snoeren, Alex C.},
@@ -847,8 +860,9 @@ publisher = {USENIX Association},
 month = apr,
 }
 
-@MISC{tofino3,
+@misc{tofino3,
     title = "Intel Tofino 3 Intelligent Fabric Brief",
+    author = "Intel",
     howpublished = "\url{https://www.intel.com/content/www/us/en/products/network-io/programmable-ethernet-switch/tofino-3-brief.html}",
     year = 2020
 }
@@ -1062,16 +1076,22 @@ publisher = {USENIX Association},
 address = {USA},
 abstract = {Memory is the most contended and least elastic resource in datacenter servers today. Applications can use only local memory--which may be scarce--even though memory might be readily available on another server. This leads to unnecessary killings of workloads under memory pressure and reduces effective server utilization.We present application-integrated far memory (AIFM), which makes remote, "far" memory available to applications through a simple API and with high performance. AIFM achieves the same common-case access latency for far memory as for local RAM; it avoids read and write amplification that paging-based approaches suffer; it allows data structure engineers to build remoteable, hybrid near/far memory data structures; and it makes far memory transparent and easy to use for application developers.Our key insight is that exposing application-level semantics to a high-performance runtime makes efficient remoteable memory possible. Developers use AIFM's APIs to make allocations remoteable, and AIFM's runtime handles swapping objects in and out, prefetching, and memory evacuation.We evaluate AIFM with a prototypical web application frontend, a NYC taxi data analytics workload, a memcached-like key-value cache, and Snappy compression. Adding AIFM remoteable memory to these applications increases their available memory without performance penalty. AIFM outperforms Fastswap, a state-of-the-art kernel-integrated, paging-based far memory system [6] by up to 61\texttimes{}.},
 booktitle = {Proceedings of the 14th USENIX Conference on Operating Systems Design and Implementation},
+}
 
-
-
-  
-
-
-
-      
-
-
-
-  
-
+@inproceedings{ipipe,
+author = {Liu, Ming and Cui, Tianyi and Schuh, Henry and Krishnamurthy, Arvind and Peter, Simon and Gupta, Karan},
+title = {Offloading Distributed Applications onto SmartNICs Using IPipe},
+year = {2019},
+isbn = {9781450359566},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3341302.3342079},
+doi = {10.1145/3341302.3342079},
+abstract = {Emerging Multicore SoC SmartNICs, enclosing rich computing resources (e.g., a multicore processor, onboard DRAM, accelerators, programmable DMA engines), hold the potential to offload generic datacenter server tasks. However, it is unclear how to use a SmartNIC efficiently and maximize the offloading benefits, especially for distributed applications. Towards this end, we characterize four commodity SmartNICs and summarize the offloading performance implications from four perspectives: traffic control, computing capability, onboard memory, and host communication.Based on our characterization, we build iPipe, an actor-based framework for offloading distributed applications onto SmartNICs. At the core of iPipe is a hybrid scheduler, combining FCFS and DRR-based processor sharing, which can tolerate tasks with variable execution costs and maximize NIC compute utilization. Using iPipe, we build a real-time data analytics engine, a distributed transaction system, and a replicated key-value store, and evaluate them on commodity SmartNICs. Our evaluations show that when processing 10/25Gbps of application bandwidth, NIC-side offloading can save up to 3.1/2.2 beefy Intel cores and lower application latencies by 23.0/28.0 μs.},
+booktitle = {Proceedings of the ACM Special Interest Group on Data Communication},
+pages = {318–333},
+numpages = {16},
+keywords = {distributed applications, SmartNIC},
+location = {Beijing, China},
+series = {SIGCOMM '19}
+}

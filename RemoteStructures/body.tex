@@ -51,12 +51,12 @@ However, little conformity has been reached in terms of system design and
 expectation. One of the few salient points, is that the cost of coordination is
 high, and is therefore often avoided. The few prototypes which do coordinate
 accesses to far memory have sophisticated and complex techniques for achieving
-serialization~\cite{clover,race,sherman,ford}. Our insight is that nearly all of
+serialization~\cite{clover,one-sided-hash,sherman,ford}. Our insight is that nearly all of
 the serialization and synchronization issues associated with memory
 disaggregation are not new. We have found that many practical approaches can be
 mined from prior literature aimed at scaling to many cores, or directly access
 the memory of a remote machine. This insight ends where programmable networking
-begins, as little prior work (with the exception of PIMM memory~\cite{pimm}),
+begins, as little prior work (with the exception of PIMM memory~\cite{near-memory-structs}),
 includes programmability on the data path.
 
 %% What this paper is not
@@ -413,7 +413,6 @@ systems as their reads can tradeoff bandwidth for round trips. Future
 analysis into other cache optimized data structures may be fruitful in finding
 new candidate data structures for disaggregation.
 
-
 \subsection{Relaxed Layout} 
 
 Somewhat ironically while tight locality invariants enable $O(1)$ reads, loose
@@ -460,12 +459,28 @@ pushed to uncommon tasks, or tasks which are not latency sensitive.
 Precomputation in the data path may result in performance losses greater than
 the avoided round trips.
 
-\subsection{Optimistic Concurrency} Round trip times are extremely expensive.
-Traditional locking requires a round trip for acquisition and for release making
-the common case slow. Most far memory algorithms will benefit from optimistic
-concurrency with the exception of write heavy ones which must access shared
-data. I.e contentious algorithms. RDMA provides verbs such as CAS and FAA for
-implementing optimistic concurrency.
+\subsection{Optimistic Concurrency} 
+
+Lock based mutual exclusion requires at least two round trips for acquisition
+and release. Opportunistic algorithms and lock-free data structures have the
+potential to reduce the number of round trips by committing operations with a
+single atomic operation, i.e compare-and-swap. There is a deep history of
+opportunistic algorithms and data structures. Most common data structures have
+an opportunistic implementation for example, linked
+lists~\cite{linked-list-cas}, queues~\cite{simple-fast}, skip
+lists~\cite{lock-free-skip}, binary trees ~\cite{non-block-binary}, and
+b-trees~\cite{read-concur-btree,lock-free-btree}. A comprehensive review of
+these structures is beyond the scope of this paper. At a high level the
+opportunistic advantage is that in the absence of a true data race, operations
+can complete with no blocking, or retries.
+
+The main tradeoff of opportunistic approaches is that they experience high tail
+latency under contention, and often lack fairness. These drawbacks are typically
+those cited when RDMA systems choose to serialize writes using CPU implemented
+RPCs rather than RDMA atomics~\cite{pilaf, cell, herd}. Opportunistic algorithms
+have a pragmatic advantage given that current RDMA hardware supports
+compare-and-swap, as well as fetch-and-add operations, which are the necessary
+building blocks for most opportunistic data structures.
 
 \subsection{Metadata Caching}
 \todo{old rewrite}
@@ -1128,35 +1143,35 @@ requires 48 bits per key given Shermans addressing scheme.
 
 \section{Conclusion}
 
-\section{Snoeren Feedback + general todo}
+% \section{Snoeren Feedback + general todo}
 
-\begin{itemize}
+% \begin{itemize}
     
-    \item break the research exam into a structure with key parts. Alex
-    suggested (systems, challenges, solutions) - I think that the correct order
-    is going to be (Challenges, Systems, Solutions). The reason is that we can
-    break up the parts such as round trips, serialization, and write inflation,
-    discuss the systems and some of their mitigation, then introduce the
-    generalized solutions.
+%     \item break the research exam into a structure with key parts. Alex
+%     suggested (systems, challenges, solutions) - I think that the correct order
+%     is going to be (Challenges, Systems, Solutions). The reason is that we can
+%     break up the parts such as round trips, serialization, and write inflation,
+%     discuss the systems and some of their mitigation, then introduce the
+%     generalized solutions.
 
-    \item Learn how to hyphenate correctly. Alexes lesson one-sided operations.
-    One and sided are both adjectives, is it one operations, is it sided. The
-    answer is sided, so one and sided are hyphenated. Actually learn this.
+%     \item Learn how to hyphenate correctly. Alexes lesson one-sided operations.
+%     One and sided are both adjectives, is it one operations, is it sided. The
+%     answer is sided, so one and sided are hyphenated. Actually learn this.
 
-    \item Naked this - This is reason why we must do $X$. v.s High Tail Latency
-    is the reason we must do x.
+%     \item Naked this - This is reason why we must do $X$. v.s High Tail Latency
+%     is the reason we must do x.
 
-    \item it's vs its. I know the difference, I think I just make this mistake
-    while I'm writing.
+%     \item it's vs its. I know the difference, I think I just make this mistake
+%     while I'm writing.
 
-    \item Alex notes, strikes mean remove, circles mean wtf, added punctuation
-    means add punctuation.
+%     \item Alex notes, strikes mean remove, circles mean wtf, added punctuation
+%     means add punctuation.
 
-    \item add serialization early in the document so that it's listed as a key problem
-    \item merge the first three sections intro + what this paper is + what it is not into a single section. 
+%     \item add serialization early in the document so that it's listed as a key problem
+%     \item merge the first three sections intro + what this paper is + what it is not into a single section. 
     
 
-\end{itemize}
+% \end{itemize}
 
 % Disaggregated algorithms have the trait that they are one sided, and computed
 % over a network.  All shared memory algorithms are one sided, but few are
