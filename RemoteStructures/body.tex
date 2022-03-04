@@ -332,7 +332,6 @@ use it have their memory layout organized accordingly~\cite{sherman}. One final
 pitfall of RDMA atomics for locks is that they lack fairness. This can lead to
 extreme tail latencies which is not ideal for memory operations.
 
-
 \section{Solutions}
 
 \begin{table*}[h]
@@ -388,34 +387,34 @@ section~\ref{sec:systems}.
 
 \subsection{Read Inflation} \label{sec:readsize}
 %%
-Writes can be accelerated by making them sloppy and expanding reads so that they
-capture the sloppy writes and then recompose them into a coherent state. The
-recomposition adds computational overhead to reads which is dependent on the
-data structure, and overarching operation being run. As an example consider a
-multi processes sorted list. Each insert is expensive if it must be globally
-coordinated. However it's cheap if each process just maintains it's own locally
-sorted list. A call to \textit{max} which returns the max globally could peek at
-the heads of each list, and then locally compute the max from those. For $n$
+Writes can be accelerated by reduced the constraints on their location and
+expanding reads to capture the sloppy writes. The inflated reads are recomposed
+into coherent state locally at the cost of some additional computation. How much
+compute is is dependent on the data structure, and overarching operation being
+run. As an example consider a sorted list accessed by many processes. Each
+insert is expensive if it must be globally coordinated. However it is cheap if
+each process maintains its own locally sorted list. A call to \textit{max} which
+returns the max globally can peek at the head of each list. The result is a list
+of local maxes, from which the global max can be locally computed.  For $n$
 processes this inflates the cost of the read by $n$ in bandwidth however it
-removes the need for coordination. In general I believe that this holds for all
-algorithms and data structures. Consider that any structure can be represented
-by the set of operations performed on it. If each write operation is append to a
-log in memory, with a globally orderable timestamp then an arbitrary number of
-processes can have unorganized and full write throughput, and push the
-composition of the data structure to each read, where the entire log of each
-process is read, and executed locally in it's entirety.
+removes the need for coordination. 
 
 Algorithms like hopscotch hashing~\cite{hopscotch} (used in Farm~\cite{farm})
-and Robinson hashing~\cite{robinhood} are designed to have good cache locality.
-They are designed with an open addressing (closed hashing) scheme which states
-that an index does not specify the location of the value. However, with these
-hashes it will specify the neighborhood of the data, and provide good locality.
-If this locality is designed to place relevant information in sequential memory
-a scaled up read is appropriate to gain all meta, and data for the structure.
-Perhaps more data structures, designed to be concurrent and cache optimized will
-be good candidates for Disaggregated Memory.
+and Robinhood hashing~\cite{robinhood} are designed to have good cache locality.
+Hashed data is stored using open addressing, a layout scheme which allows for
+flexible data placement in the hash index.  Both of these hashes specify that
+data must be placed within a bounded range of the index the data hashes to. The
+range of valid locations is known apriori so a requests are guaranteed to
+succeed if they hash the data and perform a read large enough to capture the
+entire valid range of the datas indexes.
 
-\subsection{Relaxed Layout} Datastructures with struct semantics such as
+Data structures with locality invariants are beneficial for disaggregated
+systems as their reads can tradeoff bandwidth for round trips. Future
+analysis into other cache optimized data structures may be fruitful in finding
+new candidate data structures for disaggregation.
+
+
+\subsection{Relaxed Layout} Data structures with strict semantics such as
 ordering are difficult to maintain under contention as potentially many elements
 must be read, and organized to achieve an operation such as an insert. For
 example Sherman~\cite{sherman} uses relaxed ordering in it's B-tree buckets so
