@@ -684,7 +684,7 @@ intermediate states which are designed to route concurrent processes to the
 correct locations during updates. These structures take many CAS and write
 operations to complete. In the space of resource disaggregation O(1) operations
 are ideal, intricate and complex pointer structures care both prone to error,
-and cause many round trips to traverse. We consider the reqirement for complex
+and cause many round trips to traverse. We consider the requirement for complex
 multi-pointer intermediate states to be a bad choice for disaggregated data
 structures as the complexity, and traversal time lead to errors, and poor tail
 latencies.
@@ -694,32 +694,36 @@ proposed~\cite{read-concur-btree,lock-free-btree}. The tradeoff between full
 lock freedom and concurrent access is a high degree of complexity. Concurrent
 reads and writes are easily achieved by only locking leaf nodes. To achieve full
 lock freedom Graginsky et.al introduces complex freeze and slave states which
-are controlled by marking nodes with CAS.
+are controlled by marking nodes with CAS. While complex the performance benefits
+over lock based implementations are nearly 3x. Pointer complexity is not
+beneficial in disaggregation, the determination of how complicated a structure
+can be to avoid locks while still retaining performance will need to be
+investigated empirically per data structure.
 
 \subsection{Multicore and NUMA}
 
-\textbf{Flat Combining~\cite{flat-combine}} Locks and CAS are expensive in their
+\textbf{Flat Combining~\cite{flat-combine}:} Locks and CAS are expensive in their
 own right, when highly contested the real cost of using either mechanism can
-explode as cache protocols, and fairness skew can dominate access costs and
-inflate tail latencies. Flat combining dynamically creates a leader for each
-access to a critical section. The leader performs the work of all concurrent
-requesters in a serialized fashion and notifies them upon completion. This
-technique is extremely powerful and is used in NUMA
-algorithms~\cite{black-box-numa} as well as RDMA~\cite{flock}. The key insight
-here is that the expense of a critical section can be amortized significantly if
-is executed within the local confines of a leader, this simultaneously allows
-for batching. Individual cores may not be able to push the request limit of RDMA
-(7 cores for 8byte 120MOPS on CX5), however on any particular algorithm they
-may. In these cases batching will improve performance. For instance 
-Clover~\cite{clover} a disaggregated key-value store described in detail later
-on, would see a significant performance boost if it applied flat combining if
-and when its clients were co-located. This benifit is showcased in a recent
-disaggregated B-tree Sherman~\cite{sherman}, discussed later in detail as well.
+explode as cache protocols, and fairness skew can inflate tail latencies. Flat
+combining dynamically creates a leader for each access to a critical section.
+The leader performs the work of all concurrent requesters in a serialized
+fashion and notifies them upon completion. This technique is extremely powerful
+and is used in NUMA algorithms~\cite{black-box-numa} as well as
+RDMA~\cite{flock}. The key insight is that the expense of a critical
+section can be amortized significantly if is executed within the local confines
+of a leader, this simultaneously allows for batching. Individual cores may not
+be able to push the request limit of RDMA (7 cores for 8byte 120MOPS on CX5),
+however on any particular algorithm they may. In these cases batching will
+improve performance. For instance Clover~\cite{clover} a disaggregated key-value
+store described in detail later on, would see a significant performance boost if
+it applied flat combining if and when its clients were co-located. This benefit
+is showcased in a recent disaggregated B-tree Sherman~\cite{sherman}, discussed
+later in detail as well.
 
 \textbf{Hopscotch Hashing~\cite{hopscotch}} introduces a cache optimized
 hashmap. Similar to cuckoo hashing it is open addressed. When data collisions
-occur on inserts, the algorithm searches for a location by looking for a spot a
-bounded distance away from the hash location. If an empty spot is found the
+occur on inserts, the algorithm searches for a location by checking a
+bounded distance away from the original hash location. If an empty spot is found the
 value is written, and a marker is written to the original hash location to
 inform readers that there is a value $n$ steps away which collided. If no spot
 is found for the write, the \textit{hopscotch} is invoked and the procedure for
@@ -727,7 +731,7 @@ finding a candidate write is performed iteratively on neighboring buckets until
 a new spot within range is found for the new write. If too many hops are taken,
 the hash doubles in side and all items are rehashed.
 
-This algorithm was designed to be cache efficient, as lookups would likely be on
+This algorithm is designed to be cache efficient, as lookups would likely be on
 the same cache line. It has the additional advantage that when a value is
 written, it's location is deterministic within a bound. In remote memory this
 allows for $O(1)$ lookups as the size of the read can be expanded to included
@@ -740,10 +744,10 @@ the number of rewrites when the hopscotch algorithm is invoked.
 universal construction for NUMA architectures. Node replication is a generic
 formula for transforming any data structure into a concurrent NUMA aware data
 structure. The transformation uses a shared operational log which provides
-linearizability for all operations to the shared structure. When process runs an
-operation, for example an insert into a tree, the arguments of the operation are
-appended to the shared log. The log of operations can then be replayed by any
-processes to obtain an up to date version of the structure.
+linearizability for all operations. When a process runs an operation, for
+example an insert into a tree, the arguments of the operation are appended to
+the shared log. The log of operations can then be replayed by any processes to
+obtain an up to date version of the structure.
 
 Node replication makes use of many optimizations, as the name suggests, the
 shared log is replicated on each node. Local copies of the shared structure are
@@ -755,21 +759,21 @@ leader of each node. If the leader is behind is scans the list, and attempts to
 append only once it's found the tail.
 
 Node Replication takes into account many design considerations which are present
-in the disaggregated context. First it assumes a share, and contested region of
+in the disaggregated context. First it assumes a shared, and contested region of
 memory. Second it assumes that this memory is expensive to access, and that
 obtaining exclusive locks is cumbersome. Finally it makes locality aware
 decisions when possible for performance. Where the parallel breaks down is that
 reads are considered to be essentially free, which is not the case when they
-incur a round trip. However this is likely because node replications reads are
-bounded cache line size. Due to the linear layout of its log, if it were ported
-to far memory a single large read could capture many log entries reducing the
-round trip cost.  Another difference is that atomic operations like CAS are
+incur a round trip. However this is likely because in node replication reads are
+bounded to cache line size. Due to the linear layout of its log, if it were
+ported to far memory a single large read could capture many log entries reducing
+the round trip cost. Another difference is that atomic operations like CAS are
 considered cheap, which is not necessarily the case in RDMA
-deployments~\cite{design-guidelines}, see Section~\ref{sec:pitfalls} for more
-details. 
+deployments~\cite{design-guidelines}.
 
 
 \subsection{RDMA key-value stores} 
+
 \textbf{Pilaf~\cite{pilaf}} uses just such a mixture of one and two sided RDMA
 operations. The key insight is that if a data structure is architects carefully,
 the reads can be performed fully asynchronously by one sided RDMA reads which
