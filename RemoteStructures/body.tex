@@ -333,42 +333,8 @@ pitfall of RDMA atomics for locks is that they lack fairness. This can lead to
 extreme tail latencies which is not ideal for memory operations.
 
 \section{Solutions}
+\label{sec:solutions}
 
-\begin{table*}[h]
-%\begin{table}[h]
-    \centering
-    \begin{tabular}{ c | c | c | c | c | c | c | c | c }
-        & project & \shortstack{read \\ inflation} & \shortstack{relaxed  \\ layout} & \shortstack{pre-\\compute} & \shortstack{optimistic \\ concurrency} & \shortstack{metadata \\ caching} & \shortstack{compute \\ coalescing} & \shortstack{self \\ verifing}  \\ \hline
-                                                                %N          %R          %P          %O          %M          %C          %W          %S
-\multirow{3}{*}{\rotatebox[origin=c]{90}{\shortstack{Multicore \\ NUMA}}} & \shortstack{Flat \\ Combining}~\cite{flat-combine}   & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \fullcirc & \nullcirc \\ \cdashline{2-9}
-         & \shortstack{Hopscotch \\ Hash}~\cite{hopscotch}         & \fullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc \\ \cdashline{2-9}
-%\multirow{1}{*}{\rotatebox[origin=c]{0}{\shortstack{NUMA}}} & \shortstack{Blackbox \\ NUMA}~\cite{black-box-numa}     &  &  &  &  &  &  &  &  \\ \hline \hline %\cline{2-10} \cline{2-10}
-        & \shortstack{Blackbox \\ NUMA}~\cite{black-box-numa}     & \halfcirc & \nullcirc & \nullcirc & \fullcirc & \fullcirc & \fullcirc & \nullcirc \\ \hline %\cline{2-10} \cline{2-10}
-\multirow{4}{*}{\rotatebox[origin=c]{90}{\shortstack{RDMA \\ Key-Value}}} & pilaf~\cite{pilaf}                                      & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \fullcirc \\ \cdashline{2-9}
-         & farm~\cite{farm}                                        & \fullcirc & \nullcirc & \nullcirc & \fullcirc & \fullcirc & \fullcirc  & \nullcirc \\ \cdashline{2-9}
-         & herd~\cite{herd}                                        & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc  & \nullcirc \\ \cdashline{2-9}
-         & cell~\cite{cell}                                        & \nullcirc & \nullcirc & \nullcirc & \halfcirc & \fullcirc & \nullcirc  & \fullcirc \\ \hline \hline
-         % & % fasst~\cite{faast}                                      & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc %& \nullcirc & \nullcirc \\ \hdashline
-         % & % erpc~\cite{erpc}                                        & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc \\ \hdashline
-         %& storm~\cite{storm}                                      &  &  &  &  &  &  &  \\ \cdashline{2-9}
-         % & 1RMA~\cite{1rma}                                        &  &  &  &  &  &  &  \\ \hline \hline
-\multirow{5}{*}{\rotatebox[origin=c]{90}{\shortstack{\small Disaggregated \\ \small Datastructures }}}        & Clover~\cite{clover}                                    & \nullcirc &  \halfcirc &  \nullcirc & \fullcirc & \fullcirc  & \nullcirc & \nullcirc \\ \cdashline{2-9}
-%\multirow{5}{*}{\rotatebox[origin=c]{90}{\shortstack{Far-Memory \\ Structures}}}        & Clover~\cite{clover}                                    & \nullcirc &  \halfcirc &  \nullcirc & \fullcirc & \fullcirc  & \nullcirc & \nullcirc \\ \cdashline{2-9}
-         & \shortstack{RACE}~\cite{write-op-hash}            & \fullcirc  & \fullcirc & \halfcirc & \fullcirc & \fullcirc & \nullcirc & \fullcirc \\ \cdashline{2-9}
-         & Sherman~\cite{sherman}                            & \fullcirc & \fullcirc & \halfcirc & \fullcirc & \fullcirc & \fullcirc & \fullcirc \\ \cdashline{2-9}
-         & Ford~\todo{}                                          &  &  &  &  &  & \\ \cdashline{2-9}
-         & Mind~\cite{mind}                                                & \nullcirc & \halfcirc & \halfcirc & \nullcirc & \fullcirc & \nullcirc & \nullcirc \\ \hline
-
-
-    \end{tabular}
-
-    \caption{Cross section of systems and technqiues. Full circles
-    \fullcirc imply that a system uses the category, \halfcirc denotes when a
-    system meets the qualification in spirit but not explicitly, and \nullcirc
-    when the technique is absent.}
-    
-    \label{tab:1}
-\end{table*}
 
 Reducing round trips requires algorithmic and data structure improvements. A
 common tactic to reduce round trips is to reduce the precision required by an
@@ -538,109 +504,148 @@ consistent version numbers are used. If at the end of an operation the version
 numbers of each read do not match, the read is aborted.
 
 
-\section{Lesser Remote Memory Techniques}
-\label{sec:additional}
-
-\todo{This section is extremely rough}
-
-Section~\ref{sec:techniques} describes the top seven techniques we found to be
-most used, and effective in our literature survey. However there are many more
-common considerations which we briefly detail here.
-
-\subsection{Network Caching} A variety of caching techniques reduce latency for far memory
-application. Caching allows for a two fold benefit. The first is that the
-distance between requests and the required data is less. Caching on a switch
-removes the last hop in a rack, and on a NIC removes a PCIe round trip. The
-dangers with caching is that the important caching data must be determined
-somehow. Traditional caching techniques can lead to massive bandwidth inflation.
-The second advantage of caching in network is centralization which can reduce
-the communication between hosts.
-
-\subsection{Memory Traffic} As noted during Yizhous research exam. There is a
-potential for a massive amount of additional traffic to flow over the network
-due to accessing memory. There are various factors for this. In paging and cache
-based transparent systems~\cite{fastswap,kona,gms,infiniswap,legoos,lite}, the
-size and associativity of the local cache determines the traffic rate. Each
-traffic rate is also a function of the programs memory access policy, and the
-systems eviction policy. Shrinking a local cache could significantly inflate
-traffic. This is simultaneously true for any cache coherence protocol, or data
-structure which needs to have a locally up to date version of remote data prior
-to making an update. Memory traffic can be deflated by using traffic agnostic
-techniques such as compression, or by modifying the access policy, such as
-prefetching more or less remote memory. There is no magic bullet for this
-problem, each instance of a remote memory system will have to solve this problem
-in its own way.
-
-One aspect of caching protocols is that they explode the traffic requirements.
-On memory busses only intended for memory traffic, this may be acceptable, but
-on an RDMA network it's going to be most of the traffic. For example the
-proposals in Thinking outside of the Box~\cite{design-far-memory-struct} calls
-for cache coherence protocols, while Mind~\cite{mind} actually implements one.
-Swordbox actually removes the need for the cache coherence by fixing the missing
-data in network.
-
-\subsection{Write amplification mitigation}
-\label{sec:write-amplification}
-%%
-Remote structures sometimes require write
-amplification. Consider a set of entries each guarded with a checksum for
-integrity. An update to any entry requires the recomputation of the checksum,
-and the rewrite of the continuous addresses in order to make the write in a
-single round trip. Depending on the bucket size of the entries the write can
-grow arbitrarily. Another technique is to make each entry have it's own checksum
-for it's integrity, and to only update the bucket checksum when all items become
-static.
-
-\subsection{Network Serialization} 
-\label{sec:net_ser}
-%
-centralized in network compute can be used to steer and modify
-requests when data races and conflicts occur. The downside is that this takes an
-extra bit of in network processing, but it gets a big speed up. In order for a
-middlebox to make the correct steering decision it requires all of the
-information necessary to preserve the data invariants of the structure it is
-steering into. This limitation demands that the data structure itself be well
-conditioned for this property, and be able to deal with potential variance in
-its structure.
-
-A potential use for steering is also to perform in place updates while allowing
-for reads. For example imagine updating a range on a data structure [x,y] the
-first step of the operation could be to lock the region, then copy [x,y] to a
-new location [x',y']. During the update reads are steered to the new [x',y'] and
-the update is made in place on the old [x,y]. When the operation is complete the
-steering stops and the update is atomically visible. This could be useful for
-non-pointer based structures like hopscotch hashes~\cite{hopscotch}.
+% \section{Lesser Remote Memory Techniques}
+% \label{sec:additional}
 
 
-Introduce the remote memory techniques at a high level with small examples for each
+% Section~\ref{sec:solutions} describes the top seven techniques we found to be
+% most used, and effective in our literature survey. However there are many more
+% common considerations which we briefly detail here.
+
+
+% \subsection{Memory Traffic} As noted during Yizhous research exam. There is a
+% potential for a massive amount of additional traffic to flow over the network
+% due to accessing memory. There are various factors for this. In paging and cache
+% based transparent systems~\cite{fastswap,kona,gms,infiniswap,legoos,lite}, the
+% size and associativity of the local cache determines the traffic rate. Each
+% traffic rate is also a function of the programs memory access policy, and the
+% systems eviction policy. Shrinking a local cache could significantly inflate
+% traffic. This is simultaneously true for any cache coherence protocol, or data
+% structure which needs to have a locally up to date version of remote data prior
+% to making an update. Memory traffic can be deflated by using traffic agnostic
+% techniques such as compression, or by modifying the access policy, such as
+% prefetching more or less remote memory. There is no magic bullet for this
+% problem, each instance of a remote memory system will have to solve this problem
+% in its own way.
+
+% One aspect of caching protocols is that they explode the traffic requirements.
+% On memory busses only intended for memory traffic, this may be acceptable, but
+% on an RDMA network it's going to be most of the traffic. For example the
+% proposals in Thinking outside of the Box~\cite{design-far-memory-struct} calls
+% for cache coherence protocols, while Mind~\cite{mind} actually implements one.
+% Swordbox actually removes the need for the cache coherence by fixing the missing
+% data in network.
+
+% \subsection{Write amplification mitigation}
+% \label{sec:write-amplification}
+% %%
+% Remote structures sometimes require write
+% amplification. Consider a set of entries each guarded with a checksum for
+% integrity. An update to any entry requires the recomputation of the checksum,
+% and the rewrite of the continuous addresses in order to make the write in a
+% single round trip. Depending on the bucket size of the entries the write can
+% grow arbitrarily. Another technique is to make each entry have it's own checksum
+% for it's integrity, and to only update the bucket checksum when all items become
+% static.
+
+% \subsection{Network Caching} 
+
+% A variety of caching techniques reduce latency for far memory application.
+% Caching allows for a two fold benefit. The first is that the distance between
+% requests and the required data is less. Caching on a switch removes the last hop
+% in a rack, and on a NIC removes a PCIe round trip. The dangers with caching is
+% that the important caching data must be determined somehow. Traditional caching
+% techniques can lead to massive bandwidth inflation.  The second advantage of
+% caching in network is centralization which can reduce the communication between
+% hosts.
+
+% \subsection{Network Serialization} 
+% \label{sec:net_ser}
+% %
+% centralized in network compute can be used to steer and modify
+% requests when data races and conflicts occur. The downside is that this takes an
+% extra bit of in network processing, but it gets a big speed up. In order for a
+% middlebox to make the correct steering decision it requires all of the
+% information necessary to preserve the data invariants of the structure it is
+% steering into. This limitation demands that the data structure itself be well
+% conditioned for this property, and be able to deal with potential variance in
+% its structure.
+
+% A potential use for steering is also to perform in place updates while allowing
+% for reads. For example imagine updating a range on a data structure [x,y] the
+% first step of the operation could be to lock the region, then copy [x,y] to a
+% new location [x',y']. During the update reads are steered to the new [x',y'] and
+% the update is made in place on the old [x,y]. When the operation is complete the
+% steering stops and the update is atomically visible. This could be useful for
+% non-pointer based structures like hopscotch hashes~\cite{hopscotch}.
 
 \section{Systems}
 \label{sec:systems}
-\todo{rewrite}
-In terms of system design the works mentioned in Section~\ref{sec:not}, are
-doubtlessly influential on the state of disaggregation. Here we are focus on the
-algorithmic material. In particular disaggregated and remote memory systems make
-use of the concurrency patterns in lockless data structures. Locking typically
-costs two round trips to remote memory, and course grained locking can cause
-many processes to block. Many lock free data structures use CAS operations for
-serialization, which are implemented as part of the Infiniband RDMA
-specification.
+
+\begin{table*}[h]
+%\begin{table}[h]
+    \centering
+    \begin{tabular}{ c | c | c | c | c | c | c | c | c }
+        & project & \shortstack{read \\ inflation} & \shortstack{relaxed  \\ layout} & \shortstack{pre-\\compute} & \shortstack{optimistic \\ concurrency} & \shortstack{metadata \\ caching} & \shortstack{compute \\ coalescing} & \shortstack{self \\ verifing}  \\ \hline
+                                                                %N          %R          %P          %O          %M          %C          %W          %S
+\multirow{3}{*}{\rotatebox[origin=c]{90}{\shortstack{Multicore \\ NUMA}}} & \shortstack{Flat \\ Combining}~\cite{flat-combine}   & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \fullcirc & \nullcirc \\ \cdashline{2-9}
+         & \shortstack{Hopscotch \\ Hash}~\cite{hopscotch}         & \fullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc \\ \cdashline{2-9}
+%\multirow{1}{*}{\rotatebox[origin=c]{0}{\shortstack{NUMA}}} & \shortstack{Blackbox \\ NUMA}~\cite{black-box-numa}     &  &  &  &  &  &  &  &  \\ \hline \hline %\cline{2-10} \cline{2-10}
+        & \shortstack{Blackbox \\ NUMA}~\cite{black-box-numa}     & \halfcirc & \nullcirc & \nullcirc & \fullcirc & \fullcirc & \fullcirc & \nullcirc \\ \hline %\cline{2-10} \cline{2-10}
+\multirow{4}{*}{\rotatebox[origin=c]{90}{\shortstack{RDMA \\ Key-Value}}} & pilaf~\cite{pilaf}                                      & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \fullcirc \\ \cdashline{2-9}
+         & farm~\cite{farm}                                        & \fullcirc & \nullcirc & \nullcirc & \fullcirc & \fullcirc & \fullcirc  & \nullcirc \\ \cdashline{2-9}
+         & herd~\cite{herd}                                        & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc  & \nullcirc \\ \cdashline{2-9}
+         & cell~\cite{cell}                                        & \nullcirc & \nullcirc & \nullcirc & \halfcirc & \fullcirc & \nullcirc  & \fullcirc \\ \hline \hline
+         % & % fasst~\cite{faast}                                      & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc %& \nullcirc & \nullcirc \\ \hdashline
+         % & % erpc~\cite{erpc}                                        & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc \\ \hdashline
+         %& storm~\cite{storm}                                      &  &  &  &  &  &  &  \\ \cdashline{2-9}
+         % & 1RMA~\cite{1rma}                                        &  &  &  &  &  &  &  \\ \hline \hline
+\multirow{5}{*}{\rotatebox[origin=c]{90}{\shortstack{\small Disaggregated \\ \small Datastructures }}}        & Clover~\cite{clover}                                    & \nullcirc &  \halfcirc &  \nullcirc & \fullcirc & \fullcirc  & \nullcirc & \nullcirc \\ \cdashline{2-9}
+%\multirow{5}{*}{\rotatebox[origin=c]{90}{\shortstack{Far-Memory \\ Structures}}}        & Clover~\cite{clover}                                    & \nullcirc &  \halfcirc &  \nullcirc & \fullcirc & \fullcirc  & \nullcirc & \nullcirc \\ \cdashline{2-9}
+         & \shortstack{RACE}~\cite{write-op-hash}            & \fullcirc  & \fullcirc & \halfcirc & \fullcirc & \fullcirc & \nullcirc & \fullcirc \\ \cdashline{2-9}
+         & Sherman~\cite{sherman}                            & \fullcirc & \fullcirc & \halfcirc & \fullcirc & \fullcirc & \fullcirc & \fullcirc \\ \cdashline{2-9}
+         & Ford~\todo{}                                          &  &  &  &  &  & \\ \cdashline{2-9}
+         & Mind~\cite{mind}                                                & \nullcirc & \halfcirc & \halfcirc & \nullcirc & \fullcirc & \nullcirc & \nullcirc \\ \hline
+    \end{tabular}
+
+    \caption{Cross section of systems and techniques. Full circles
+    \fullcirc imply that a system uses the category, \halfcirc denotes when a
+    system meets the qualification in spirit but not explicitly, and \nullcirc
+    when the technique is absent.}
+    
+    \label{tab:1}
+\end{table*}
+
+As described in the prior section a variety of techniques throughout the history
+of system and data structure design have used techniques valuable to
+disaggregation. In this section we cover the most relevant of these systems in
+detail focusing on their use of techniques we have identified as valuable. When
+techniques are not used, or are partially used we comment on how their inclusion
+or modification may have effected system performance.
+
+Table~\ref{tab:1} is a cross section of the system we analyse and the techniques
+we identified. We include a brief overview of lock-free data structures in this
+section as nearly all the systems we analyse make use of opportunistic
+concurrency. The structures are not included in our system analysis as they are
+only a critical building block in overall system design. We follow up lock free
+data structures with NUMA systems, RDMA key-value stores, and end with systems
+designed for disaggregation.
 
 \subsection{Lock Free Data Structures}
 
-Huge amount of prior work has been done in developing lock free data structures.
-Such structures allow for concurrent reads and writes so a shared structure by
-many processes. Rather than modifying a structure by gaining exclusive access,
-lock free typically perform work out of place, and then commit the updates to a
-structure using atomic operations such as Fetch-and-Add (FAA) and CAS
-(Compare-And-Swap). These lockless structures are often opportunistic, and in
-the face of contention cause updates to retry multiple times until they meet the
-criteria for the update to succeed. Concurrent data structures are useful in
-memory disaggregation where the cost of acquiring a lock is orders of magnitude
-higher than local memory. If a lockless operation such as CAS is sufficient to
-modify a shared structure it avoids the cost of explicit synchronization. Here
-we describe a few influential concurrent data structures who's concurrent
-techniques are common in disaggregated systems.
+A huge amount of prior work has been done in developing lock free data
+structures.  Such structures allow for concurrent reads and writes so a shared
+structure by many processes. Rather than modifying a structure by gaining
+exclusive access, lock free typically perform work out of place, and then commit
+the updates to a structure using atomic operations such as Fetch-and-Add (FAA)
+and CAS (Compare-And-Swap). These lockless structures are often opportunistic,
+and in the face of contention cause updates to retry multiple times until they
+meet the criteria for the update to succeed. Concurrent data structures are
+useful in memory disaggregation where the cost of acquiring a lock is orders of
+magnitude higher than local memory. If a lockless operation such as CAS is
+sufficient to modify a shared structure it avoids the cost of explicit
+synchronization. Here we describe a few influential concurrent data structures
+who's concurrent techniques are common in disaggregated systems.
 
 Concurrent queues are one of the most simple and intuitive lock free data
 structures, with early implementations appearing in the early
