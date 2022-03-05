@@ -338,7 +338,7 @@ extreme tail latencies which is not ideal for memory operations.
 %\begin{table}[h]
     \centering
     \begin{tabular}{ c | c | c | c | c | c | c | c | c }
-        & project & \shortstack{read \\ inflation} & \shortstack{relaxed  \\ layout} & \shortstack{pre-\\compute} & \shortstack{optimistic \\ concurrency} & \shortstack{metadata \\ caching} & \shortstack{client \\ coalescing} & \shortstack{self \\ verifing}  \\ \hline
+        & project & \shortstack{read \\ inflation} & \shortstack{relaxed  \\ layout} & \shortstack{pre-\\compute} & \shortstack{optimistic \\ concurrency} & \shortstack{metadata \\ caching} & \shortstack{compute \\ coalescing} & \shortstack{self \\ verifing}  \\ \hline
                                                                 %N          %R          %P          %O          %M          %C          %W          %S
 \multirow{3}{*}{\rotatebox[origin=c]{90}{\shortstack{Multicore \\ NUMA}}} & \shortstack{Flat \\ Combining}~\cite{flat-combine}   & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \fullcirc & \nullcirc \\ \cdashline{2-9}
          & \shortstack{Hopscotch \\ Hash}~\cite{hopscotch}         & \fullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc \\ \cdashline{2-9}
@@ -483,59 +483,59 @@ compare-and-swap, as well as fetch-and-add operations, which are the necessary
 building blocks for most opportunistic data structures.
 
 \subsection{Metadata Caching}
-\todo{old rewrite}
-Shared state is a serious bottleneck for highly parallel systems especially when
-the cost of accessing a resource is high. One common pattern is to simply
-partition resources so that no sharing is required. For instance systems like
-LegoOS~\cite{legoos} and FastSwap~\cite{fastswap} don't support any state
-sharing between processes. In multithreaded programs sharing is often an
-unavoidable consequence of the work being done. For higher performance processes
-can replicate parts of the shared structure and cache the portion locally. In
-the case where there is little or no contention this allows processes to make
-forward progress without accessing a shared resource. In the disaggregated
-setting this is particular important as the cost of accessing remote memory is
-particularly high. For instance Clover~\cite{clover} locally caches the metadata
-of it's remote database to perform opportunistic writes, and Black Box
-Numa~\cite{black-box-numa} maintains a replicated log of every operation. Of
-course, when conflicts do occur the benefits of replicating state diminish and
-simply become a memory overhead. The choice of replication strategy, and degree
-of replication which will result in the highest cost to performance boost is
-workload dependent.
+%%
+Disaggregated data structures often store large amounts of data, and have
+comparatively small amount of metadata to describe it's structure. Examples of
+metadata include a hash index, page table, linked list pointers, and internal
+nodes of a b-tree. By caching just the metadata operations on remote memory can
+be greatly accelerated, as the round trip to read the metadata can be skipped.
+DMA 
+Most disaggregated proposals support some form of metadata caching either
+explicitly or implicitly. For instance Clover~\cite{clover} explicits caches the
+metadata of it's remote database to perform opportunistic writes, and Black Box
+Numa~\cite{black-box-numa} maintains a replicated log of every operation. 
 
+\subsection{Compute Side Coalescing}
+%%
+CPUs which access shared disaggregated memory may be colocated themselves.
+Localized communication between CPUs either through a shared cache, or QPI bus
+can resolve contention at a far lower cost than accessing remote memory.
+One design pattern is to designate a single core to make requests reduces the
+number of conflicts at remote memory~\cite{flat-combine}~\cite{sherman}. 
 
-\subsection{Client Side Coalescing}
-If clients to remote memory are colocated on the same machine local memory can
-be used to consolidate conflicts. For example, designating a single core to make
-requests reduces the number of conflicts at remote
-memory~\cite{flat-combine}~\cite{sherman}. Many disaggregated solutions supposed
-rack scale deployment, therefore while structures must accommodate thousands of
-threads, requests can be consolidated at the machine or NUMA level, to reduce
-round trips caused by failed contended access to remote locations. This
-consolidation requires careful consideration. For example funneling all requests
-through a single core will result in a bottle neck. Therefore all non-blocking
-operations should be made independently. However, locking operations, if
-infrequent could see large performance boosts from client side consolidation.
-
+Many disaggregated proposals are scoped at rack scale~\cite{disandapp}. Within a
+rack the case for compute side coalescing is clear, as most tasks will likely
+have some degree of colocated compute. Coalescing remote requests requires
+careful design considerations. If all requests from a rack were routed through a
+single core the requests would quickly bottleneck. A simple alternative would
+have a coalescing core only issue locking requests to remote memory, while each
+other core managed their own reads and writes.
 Properties such as fairness are more easily enforced at the client side. For
 example queues are simple. This can allow for cluster approximate fairness where
-each machine, or numa domain is fair with respect to itself, but not the system
+each machine, or NUMA domain is fair with respect to itself, but not the system
 as a whole.
 
-\subsection{Self verifying} RDMA reads and write have a variety of ordering
-guarantees depending on the transport used, but in general only operations on
-the same queue pair with a reliable connection are ordered with respect to one
-another. Accesses to memory from the host CPU only has atomic memory operations
-as a tool to order reads and writes with the NIC. This leads to read tearing
-where either the host CPU, or a client RDMA request sees a partially completed
-write. In the absence of serialization the data itself can be made self
-verifying.  Pilaf, and Cell are notable examples of KV stores which use self
-verifying data~\cite{pilaf,cell}. Self verifying data comes in a variety of
-forms. The most common is the inclusion of a checksum, typically a CRC along
-with the data. If a write is partially completed a client can detect the
-inconsistency by computing the checksum. This adds CPU cost for the sake of
-concurrency. For transactional operations which require multiple independent reads
-to be consistent version numbers are used. If at the end of an operation the
-version numbers of each read do not match, the read is aborted.
+\subsection{Self verifying} 
+
+
+RDMA reads and writes are often inconsistent and incomplete from the perspective
+of client side CPU's and other RDMA clients. In general only when requests are
+on the same reliable connection is the visibility of operations guaranteed to be
+in order. From the perspective of other observers writes may be incomplete, or
+out of order. Only when expensive atomic operations are used will any
+consistency between connection be guaranteed by the NIC.  This leads to read
+tearing as a common case, where either the host CPU, or a client RDMA request
+sees a partially completed write. 
+
+In the absence of serialization the data itself can be made self verifying.
+Pilaf, and Cell are notable examples of KV stores which use self verifying
+data~\cite{pilaf,cell}. Self verifying data comes in a variety of forms. The
+most common is the inclusion of a checksum, typically a CRC along with the data.
+If a write is partially completed a client can detect the inconsistency by
+computing the checksum. This adds CPU cost for the sake of concurrency. For
+transactional operations which require multiple independent reads to be
+consistent version numbers are used. If at the end of an operation the version
+numbers of each read do not match, the read is aborted.
 
 
 \section{Lesser Remote Memory Techniques}
