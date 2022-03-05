@@ -481,9 +481,8 @@ example queues are simple. This can allow for cluster approximate fairness where
 each machine, or NUMA domain is fair with respect to itself, but not the system
 as a whole.
 
-\subsection{Self verifying} 
-
-
+\subsection{Self verifying data} 
+%%
 RDMA reads and writes are often inconsistent and incomplete from the perspective
 of client side CPU's and other RDMA clients. In general only when requests are
 on the same reliable connection is the visibility of operations guaranteed to be
@@ -633,28 +632,36 @@ designed for disaggregation.
 
 \subsection{Lock Free Data Structures}
 
-A huge amount of prior work has been done in developing lock free data
-structures.  Such structures allow for concurrent reads and writes so a shared
-structure by many processes. Rather than modifying a structure by gaining
-exclusive access, lock free typically perform work out of place, and then commit
-the updates to a structure using atomic operations such as Fetch-and-Add (FAA)
-and CAS (Compare-And-Swap). These lockless structures are often opportunistic,
-and in the face of contention cause updates to retry multiple times until they
-meet the criteria for the update to succeed. Concurrent data structures are
-useful in memory disaggregation where the cost of acquiring a lock is orders of
-magnitude higher than local memory. If a lockless operation such as CAS is
-sufficient to modify a shared structure it avoids the cost of explicit
-synchronization. Here we describe a few influential concurrent data structures
-who's concurrent techniques are common in disaggregated systems.
+The downsides of centralized locking has been known for decades and a huge
+amount of work has been done in developing lock free data structures. Lock free
+structures exist in a concurrency hierarchy. Wait free structures are a subset
+of lock free structures, which are a subset of non-blocking structures. We focus
+on lock freedom and use this term generously for simplicity as the fine grained
+differences between these hierarchies are not the focus of this work.  The
+premise behind lock free structures is that in the absence of a data race
+concurrent reads and writes can succeed without the need to explicitly
+communicate. Failures to read or write also do not cause a threads to effect one
+another.
 
-Concurrent queues are one of the most simple and intuitive lock free data
-structures, with early implementations appearing in the early
-90s~\cite{simple-fast}. This algorithm presents a safe way to implement enqueue
-dequeue with CAS. The pattern for enqueue is to write out new data, search
-concurrently for the tail, and then attempt a CAS to connect the new element. If
-failure occurs because a concurrent process wrote to the tail, the CAS fails,
-and the procedure retires the traversal until success. This pattern of write
-first, commit after is common among concurrent algorithms.
+Rather than modifying a structure by gaining exclusive access, lock free
+structures typically perform work out of place, and then commit the updates to a
+structure using atomic operations such as Fetch-and-Add (FAA) and
+Compare-and-Swap (CAS). These lockless structures are often opportunistic, and
+in the face of contention cause updates to retry multiple times until they meet
+the criteria for the update to succeed. Lock freedom is useful in memory
+disaggregation where the cost of acquiring a lock is orders of magnitude higher
+than local memory. If a lockless operation such as CAS is sufficient to modify a
+shared structure it avoids the cost of explicit synchronization. We now cover a
+few popular lock-free structures in detail.
+
+Concurrent queues are perhaps the most simple and intuitive lock free data
+structure. Standard library implementations of lock free queues have existed
+since the early 90s~\cite{simple-fast}. The algorithm uses CAS to enqueue and
+dequeue queue items in a single operation. The pattern for enqueue is to write
+out new data, search concurrently for the tail, and then attempt a CAS to
+connect the new element. If failure occurs because a concurrent process wrote to
+the tail, the CAS fails, and the procedure retires the traversal until success.
+This pattern of write first, commit after is common among concurrent algorithms.
 
 Fomitchev et.al introduces lock free linked lists and skip
 lists~\cite{lock-free-skip}. Similar to queues this algorithm allocates tiers of
@@ -664,27 +671,30 @@ committed in a single CAS operation. To solve this problem CAS's are used to
 first invalidate nodes, similar to locking, and then updates are applied via CAS
 to include new nodes in the skiplist. This work also introduces safety
 optimizations such as pointing deleted nodes in lists back to their previous
-node to keep the structure valid while the update occurs.
+node to keep the structure traversals valid while updates occur.
 
-The first instance of non-blocking binary trees was introduced by Ellen et al.
-Binary trees represent a far more complex structure to manage concurrently than
-linked lists. During insertions BST rotations require multiple pointer updates,
-CAS operations can typically, due to spacial constraints, only update a single
-pointer per instruction. This leads to a variety of complex corner cases which
-leave the BST in invalid states during rotations which can occur per insertion
-and deletion. To prevent invalid states non-blocking BST's introduce complex
+Ellen et al. introduced the first instance of lock free binary search trees
+(BST)~\cite{non-block-binary}.  Binary trees represent a far more complex
+structure to manage concurrently than linked lists. During insertions BST
+rotations require multiple pointer updates, CAS operations can typically, due to
+spacial constraints, only update a single pointer per instruction. This leads to
+a variety of complex corner cases which leave the BST in invalid states during
+rotations.  To prevent invalid states lock free BSTs introduce complex
 intermediate states which are designed to route concurrent processes to the
 correct locations during updates. These structures take many CAS and write
-operations to complete in order to achieve the non-blocking property. In the
-space of resource disaggregation O(1) operations are ideal, intricate and
-complex pointer structures care both prone to error, and cause many round trips
-to traverse. A lesson from non-blocking BST is that the complexity of
-non-blocking structures grows quickly as it's invariants become more complex,
-and they are not clear cut candidates for porting to the disaggregated setting.
-
-\sg{Various read concurrent, and lock free implementations of B-Tree's have been
-developed over the past decade~\cite{read-concur-btree,lock-free-btree}.}
-\todo{finish btree}
+operations to complete. In the space of resource disaggregation O(1) operations
+are ideal, intricate and complex pointer structures care both prone to error,
+and cause many round trips to traverse. We consider the reqirement for complex
+multi-pointer intermediate states to be a bad choice for disaggregated data
+structures as the complexity, and traversal time lead to errors, and poor tail
+latencies.
+ 
+Multiple implementations of concurrent B-Trees have been
+proposed~\cite{read-concur-btree,lock-free-btree}. The tradeoff between full
+lock freedom and concurrent access is a high degree of complexity. Concurrent
+reads and writes are easily achieved by only locking leaf nodes. To achieve full
+lock freedom Graginsky et.al introduces complex freeze and slave states which
+are controlled by marking nodes with CAS.
 
 \subsection{Multicore and NUMA}
 
