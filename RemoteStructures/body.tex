@@ -1086,29 +1086,33 @@ required.
 (This paper is obviously relevant, but the preprint is not out yet. Yizhou is
 going to work with them and may get me a copy prior to the RE deadline.)
 
-\subsection{Network Centralized Dissagregation}
+\subsection{Network Centralized Disaggregation}
 
-\textbf{MIND~\cite{mind}}
-%%
-differs from other remote memory systems in that it uses the network as a
-centralized location to serialize access to disaggregated memory. Mind acts as an
-MMU providing isolation and protection to processes running on endhosts. It us  
-It makes use of the MSI cache coherence protocol (Modified, Shared, Invalid)
-which essentially acts as read/write locks on the memory. Shared means that many
-processes can read shared memory, modified means that it's dirty and owned by a
-single process, invalid means it's not present. Mind provides both memory
-protection and cache coherence. 
+To this point each system relies on predetermined hardware functionality such as
+the RDMA interface. This avoids the use of programmable networking hardware
+which has the potential to greatly accelerate disaggregated systems as they hold
+a centralized location within a disaggregated system. As of yet few systems are
+build which use in network programs to accelerate disaggregation.
 
-As MIND is in-network it's constraints differ from all prior systems in that
-serialization is relatively cheap, but state is extremely expensive. In this way
-it's only cousin in this work is Sherman, as they both require careful use of in
-network locks. MIND uses a sophisticated page table splitting algorithm, similar
-to dynamic huge pages which uses minimal memory while providing protection to a
-large space of virtual addresses. MIND does share some characteristics with
-prior work, in that due to constraints it relaxes the definitions of it's
-structures, such as the virtual memory space of remote memory itself, which it
-combines into a single contiguous address space. This allows mind to only keep a
-translation entry for each memory server it manages.
+\textbf{MIND~\cite{mind}} differs from other remote memory systems in that it
+uses the network as a centralized location to serialize access to disaggregated
+memory. MIND acts as an MMU providing isolation and protection to processes
+running on end hosts. It makes use of the MSI cache coherence protocol (Modified,
+Shared, Invalid) which essentially acts as read/write locks on the memory.
+Shared means that many processes can read shared memory, modified means that
+it's dirty and owned by a single process, invalid means it's not present.  Mind
+provides both memory protection and cache coherence. 
+
+As MIND is in-network its constraints differ from all prior systems as request
+serialization is cheap, but memory is extremely expensive (switch SRAM). In this
+way it's only cousin in this work is Sherman, as they both require careful use
+of in network locks. MIND uses a sophisticated page table splitting algorithm,
+similar to dynamic huge pages which uses minimal memory while providing
+protection to a large space of virtual addresses. MIND does share some
+characteristics with prior work, in that due to constraints it relaxes the
+definitions of it's structures, such as the virtual memory space of remote
+memory itself, which it combines into a single contiguous address space. This
+allows MIND to only keep a translation entry for each memory server it manages.
 
 
 \section{Future Work Middlebox Incorporation}
