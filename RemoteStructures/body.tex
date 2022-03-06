@@ -921,10 +921,20 @@ consistent state are used by Cell.
 
 \subsection{Disaggregated Systems}
 
+The systems and techniques covered until this point all make architectural
+assumptions which are not purely aligned with disaggregation. In this section we
+overview recent systems specifically targeting disaggregation. Most systems here
+are not instantiated in a disaggregated architecture themselves, and are instead
+implemented on commodity servers. They do however limit themselves to use of CPU
+and memory specific machines which forces their algorithms and datastrcutrues to
+use only one-sided RDMA operations. As mentioned in the introduction, we analyze
+systems with explicit sharing and contention. Therefore none of the systems
+below are those which partition their remote memory.
+
 \textbf{Clover~\cite{clover}}
 %%
-is a key value store designed for persistent, disaggregated memory. All
-of it's remote memory operations are performed via one side RDMA, with the
+is an RDMA key-value store designed for persistent, disaggregated memory. All
+of it's remote memory operations are performed via one-side RDMA, with the
 exception of two sided metadata operations sent to non-disaggregated metadata
 servers. This architecture is reached by an empirical evaluation of 4
 alternative systems, one which uses a centralized coordinator, and another with
@@ -932,7 +942,7 @@ no metadata server at all. The out of band approach is found to perform well for
 read only, and sparse write workloads. 
 
 Clover makes use of many techniques for optimizing access to remote memory.
-Firstly, it's core algorithm relies on optimistic concurrency. Each key in it's
+Firstly, its core algorithm relies on optimistic concurrency. Each key in its
 key value store maintains a history in the form of a linked list. Writes append
 values to the list by writing to a partitioned address space first, and then
 linking the new write to the list via a CAS operation. The CAS location at the
@@ -944,33 +954,37 @@ server. Clover's key-value store has no predetermined or canonical layout, while
 this is not necessarily a relaxed layout, the use of a partitioned address space
 for writes is a clever way to reduce write conflicts.
 
-%%\textbf{opprotunities}
-Clover does not make use of self verifying data
-structures, with the exception of it's pDPM direct. Clover writes take two round
-trips in the common case, the first to write, the second to CAS. This ensure the
-write completes prior to committing with a CAS. Were clover to have a self
-verifying write, the CAS could be batched with the write, thereby allowing
-partially written writes to be included in the chain in one RTT. Clover assumes
-the worst case for clients in which none are co-resident on the same machine. In
-practice clover could gain significant benefits by coalescing client writes with
-techniques such as flat combining, when clients are co-resident. This
-speculation is based on the analysis that Clovers write throughput under 50/50
-read write is well below the throughput of a single queue
+There are a few optimizations Clover did not include which have the potential to
+improve it's performance. Here we comment on the potential optimizations. Clover
+does not make use of self verifying data structures, with the exception of it's
+pDPM direct variant. Clover writes take two round trips in the common case, the
+first to write, the second to CAS. This ensure the write completes prior to
+committing with a CAS.  If Clover were clover to have a self verifying write,
+the CAS could be issued concurrently with the write. Here if the CAS failed, it
+could be reissued quickly. If the CAS succeeded and made the write visible prior
+to it's completion, the checksum would guard other clients from reading
+incomplete write data. 
+
+Clover makes no assumptions about client co-residency. In practice clover could
+gain significant benefits by coalescing client writes with techniques such as
+flat combining. This speculation is based on the analysis that Clovers write
+throughput under 50/50 read write is well below the throughput of a single queue
 pair~\cite{design-guidelines}. It could likely gain performance boosts similar
 to Sherman~\cite{sherman}, by taking this optimizations into account. 
 
-Clovers data layout is sparse so it cannot simply inflate it's reads in order to
-gain more information, and skip round trips. Figure~\ref{fig:clover_alt} shows
-clovers memory layout on the left, in which process isolated memory references
-each other via pointers. On the right an alternative design shows a similar
-structure which allows for traversals using fewer round trips as the size of the
-read can be expanded linearly to capture more of the pointers. Note however that
-this layout is not identical as reads have no explicit way of determining that a
-value has become invalid by reading the data itself. This example is intended to
-illustrate an alternative approach which could accelerate clovers pointer
-chaining, potentially reducing the requirement for a metadata store. More design
-rigor would be required to achieve the same read semantics.
-
+Finally for the sake of discussion we describe an alternative, but not
+functionally equivalent data layout for Clovers linked list. Clovers data layout
+is pointer based and sparse so it cannot simply inflate it's reads in order to
+gain more information in a single round trip. Figure~\ref{fig:clover_alt}
+illustrates Clovers memory layout on the left, in which process isolated memory
+references each other via pointers. On the right an alternative design shows a
+similar structure which allows for traversals using fewer round trips as the
+size of the read can be expanded linearly to capture more of the pointers. This
+layout is not identical as reads have no explicit way of determining that a
+value has become invalid by reading the data itself. An additional write would
+be required to mark data as no longer valid. These optimization examples are
+intended to illustrate how the techniques from Table~\ref{tab:1} might be
+applied to an existing solution.
 
 \begin{figure}
     \includegraphics[width=0.45\textwidth]{fig/clover_alt.pdf}
