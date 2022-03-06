@@ -998,43 +998,45 @@ applied to an existing solution.
 
 \textbf{RACE~\cite{one-sided-hash}}
 %%
-designes an RDMA optimized key-value store for remote memory. RACE is
-lock-free and makes use of additional memory to reduce conflicts and contention.
-RACE notes that prior hash solutions can incur multiple round trips when the
-lookups fail, and that if the index must shuffle data such as cuckoo and
-hopscotch hashing, lock contention is inflated. RACE caches client metadata
-locally to avoid performing directory lookups in the common case. This is a
-critical design point as RACE makes use of a two level directory which changes
-each time the hash table expands. The local client cache allows for O(1) lookups
-by examining the metadata on the client, and only traversing the true directory
-when version numbers have changed.
+is a fully disaggregated key-value store. RACE's key-value hash is lock-free and
+makes use of additional memory to reduce conflicts and contention. RACE notes
+that prior hash solutions can incur multiple round trips when the lookups fail,
+and that if the index must shuffle data such as cuckoo and hopscotch hashing,
+lock contention is inflated. RACE caches client metadata locally to avoid
+performing directory lookups in the common case. This is a critical design point
+as RACE makes use of a two level directory which changes each time the hash
+table expands. The local client cache allows for O(1) lookups by examining the
+metadata on the client, and only traversing the true directory when version
+numbers have changed.
 
-RACE introduces a sophisticated disaggregation specific suitable structure. At
-every point in it's design this subtable makes use of RDMA's ability to read
-ranges of sequential addresses easily. Firstly all of the buckets in the hash
-table are associate so that up to four collisions can occur in a single per read
-location. Second an overflow bucket is used as a buffer between each second
-bucket. In this way there is additional space for overflow. Finally power of two
-is used to select multiple locations for a write to land. In total this forces
-reads to read two bucket locations, and two overflow location per read. With an
-associativity of 4. In total this gives an extremely high likelihood of $O(1)$
-reads while coming at a cost of 16x the read bandwidth. This read inflation is
-amortized by only performing two reads, and batching them together
-asynchronously. While this reduces the overall load on keys, is half's the
-theoretical reads per second due to the packet processing ability of the
-receiving side NIC. 
+RACE main contribution is a hash index which is fast to query and expand using
+one-sided reads and writes. Read expansion is used liberally to increase the
+chance that reads will find the correct location, and the data structures
+invariants on location are relaxed so that writes commonly execute in a single
+round trip.  Buckets in the RACE hash table are associate so that up to four
+collisions can occur in a single per read location. An overflow bucket is used
+as a buffer between each second bucket, this way there is additional space for
+overflow. The power of two is used to select multiple locations for writes. In
+total this forces reads to read two bucket locations and two overflow location
+per read.  With an associativity of 4. In total this gives an extremely high
+likelihood of $O(1)$ reads while coming at a cost of 16x the read bandwidth on
+the index.  This read inflation is amortized by only performing two reads, and
+batching them together asynchronously. While this reduces the overall load on
+keys, is half's the theoretical reads per second due to the packet processing
+ability of the receiving side NIC. 
 
-To enable scalability RACE uses concurrent lockless reads and inserts to improve
-average case performance.  RACE's main downside is it's inability to reduce the
-number of round trips for each operation. Each read requires an access to the
-index structure followed by a data read. These two round trips require three
-packets. Insertions require four round trips, writes three, and deletions 3.
-While batching is used to reduce the cost of round trips when possible the
-overall cost remains high especially as the number of RTT leads to high tail
-latencies. The requirement for round trips is that it's metadata is divorced
-from it's data. Therefore all requests must first make a metadata traversal.
-Were RACE to adopt an implicit data invalidation scheme like Clover it could
-potentially optimize for one less round trip per read and write.
+RACE uses concurrent lockless reads and inserts to improve average case
+performance. The main downside to RACE's overall hash table is it's inability to
+reduce the number of round trips for each operation. Each read requires an
+access to the index structure followed by a data read. These two round trips
+require three packets.  Insertions require four round trips, writes three, and
+deletions three. While batching is used to reduce the cost of round trips when
+possible the overall cost remains high especially as the number of RTT leads to
+high tail latencies. Each additional round trip is in some part due to data
+being separate from it's meta data. Unlike Clover the data does not implicitly
+imply that it is valid (as Clover does by having a null pointer at the tail of
+each linked list.) Were RACE to adopt an implicit data invalidation scheme like
+Clover it could potentially optimize for one less round trip per read and write.
 
 A short example of an optimization, similar to clover would be to include some
 sort of version in the slot, perhaps by removing the fingerprint, or size of
