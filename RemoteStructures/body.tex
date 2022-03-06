@@ -772,93 +772,101 @@ considered cheap, which is not necessarily the case in RDMA
 deployments~\cite{design-guidelines}.
 
 
-\subsection{RDMA key-value stores} 
+\subsection{RDMA key-value stores}
 
-\textbf{Pilaf~\cite{pilaf}} uses just such a mixture of one and two sided RDMA
-operations. The key insight is that if a data structure is architects carefully,
-the reads can be performed fully asynchronously by one sided RDMA reads which
-dramatically reduces server side CPU usage and request latency. This technique
-is common in concurrent algorithms, and is readily applicable here. One new
-technique for remote memory structures which pilaf introduces is self verifying
-data entries. These entries prevent data corruption during races. Incomplete
-writes read by RDMA operations can be invalidated by the client. This is one
-example of pushing the complexity of a data structure to the client side. Pilaf
-does not extend to the disaggregated context directly as writes are handled by a
-server side cpu which serializes requests, and processes CRC's. Their rational
-is that client side atomic operations are slow, and brittle. 
+RDMA key-value stores are a valuable case study for disaggregation. Many of
+these system use one-sided RDMA to reduce CPU utilization and increase
+performance. Their partial use of one sided verbs has paved the way for complete
+one-sided operations required for disaggregation.
 
 
-\todo{Write more about farm as it ticks a lot of the boxes}
-%%
-\textbf{Farm~\cite{farm}}, similar to pilaf allows for async RDMA reads, and
-uses one sided writes. In this way FARM makes use of an entirely disaggregated
-applicable algorithm with respect to it's RDMA circle buffers. 
-%%
-However the writes are made to a buffer which is polled by a server side CPU and
-later processed as a transaction. This technique in some ways is a
-disaggregation applicable approach. At least the writes side of the rx wheel
-uses disaggregated techniques. Senders cache a local copy of the buffers head
-location, in the disaggregated world this pointer would need to be updated in a
-one sided fashion, in FARM the receiver occasionally sends the new pointer
-location back to the sender when more space has been freed up.
-Farm multiplexes queue pairs to reduce the strain on client side NIC memory.
-While this is not an explicit use of flat combining it does serialize writes on
-the client as an optimization.
+\textbf{Pilaf~\cite{pilaf}}, one of the earliest RDMA KVS uses a mixture of one
+and two sided RDMA operations. Using carefully architected data structures they
+show that fully asynchronous RDMA reads are possible. Put requests are executed
+by server side CPU's which manages the critical section for each write. Reads
+are issued by clients using one-sided RDMA reads. To prevent clients from
+observing partially written state, Pilaf introduced the concept of self
+verifying data into the RDMA context. Each write entry contains a CRC checksum
+of the data which is the last part written to each entry.  These entries prevent
+data corruption during races. Incomplete writes read by RDMA operations can be
+invalidated by the client. The complexity of ensuring that operations completed
+successfully is pushed to the client which is a requirement for disaggregated
+systems.  Pilaf does not extend to the disaggregated context directly as writes
+are handled by a server side cpu which serializes requests, and processes CRC's.
+Their rational is that client side atomic operations are slow, and brittle. 
 
-Farm makes use of lock free operations by applying version numbers to each
-transaction item. When async reads come in, they check the version number of the
-data, if the version is old, they retry with a random backoff. Writers apply CAS
-operations locally to the version numbers asynchronously from the readers.
-However as half of it's structures manipulation requires server side processing
-it is not directly applicable. The hash table Farm uses is applicable. They use
-Hopscotch Hashing~\cite{hopscotch} which places data near keys. This allows a
-single read to get the values it needs with a single round trip (as opposed to
-cuckoo hashing). This pushes the complexity to the client. To my knowledge this
-if the first instance of pushing read complexity to the client in any paper by
-inflating the size of the read.
+
+\textbf{Farm~\cite{farm}}, similar to Pilaf uses asynchronous RDMA reads. Farm
+also used one-sided writes to send circle buffer control information. These
+buffers would be completely portable to the disaggregated setting except that
+the buffer information is consumed by a memory side CPU. Many of the techniques
+used in Farm are directly applicable to disaggregation despite Farm being
+designed as a homogenous compute platform with CPUs on every machine in a
+cluster. To improve RDMA performance Farm multiplexes RDMA queue pairs to reduce
+the strain on client side NIC memory.  While this is not an explicit use of flat
+combining it does coalesce write on the client.
+
+
+% However the writes are made to a buffer which is polled by a server side CPU and
+% later processed as a transaction. This technique in some ways is a
+% disaggregation applicable approach. At least the writes side of the rx wheel
+% uses disaggregated techniques. Senders cache a local copy of the buffers head
+% location, in the disaggregated world this pointer would need to be updated in a
+% one sided fashion, in FARM the receiver occasionally sends the new pointer
+% location back to the sender when more space has been freed up.  
+
+Farm makes use of lock-free operations by applying version numbers to each
+transaction item. One-sided transactional reads check the version number of each
+entry. If any version numbers are old they indicate an in-progress transaction.
+Farm uses random backoff to avoid continual conflicts. While this does not
+explicitly solve congestion it is a pragmatic solution for occasionally
+contested data. Version numbers for transactions are incremented using one sided
+CAS by writers. Hopscotch hashing makes its RDMA debut in this work. The authors
+note that because the hashing algorithm places data within a bounded distance of
+the hash location large reads can find the data in a single round trip (unlike cuckoo hashes).
 
 
 \textbf{Herd~\cite{herd}} improves upon both FaRM and Pilaf in terms of raw
-performance by looking closely at the RDMA specific behavior of KV stores. It
-considers the hash algorithm carefully to bound the number of one sided reads.
-And uses RDMA writes from server, rather than two sided operations to improve
-latency. Herds biggest contribution is that it closely analyses RDMA performance
-and choses the verb architecture closely. Herd does not apply greatly to
-disaggregated contexts as is fully assumes server side CPUs. However, it's one
-sided benchmarks are valid and valuable for disaggregated designers.
+performance by closely examining RDMA hardware behavior. It considers the hash
+algorithm carefully and finds that one-sided reads perform worse than executing
+a one-sided write from the client, which triggers an RPC followed by a response
+write from the server.
 
-\sg{Herd is the closest an RDMA key value store gets to being an influence on
-disaggregation without crossing the line. I think it might not belong here,
-however it takes every other aspect of RDMA performance and remote memory into
-consideration. I can imagine a HERD built with NIC's that would meet the
-disaggregated model easily.}
+Herds biggest contribution is that it closely analyses RDMA performance and
+choses the verb architecture closely. Herd does not apply greatly to
+disaggregated contexts as is fully assumes server side CPUs. However, it's one
+sided benchmarks are valid and valuable for disaggregated designers. The
+insights from this work have been influential in the construction of many fast
+RPC systems~\cite{erpc,faast,storm,1rma}. Unfortunately for disaggregation this
+line of work largely forgoes pure one-sided operations for RDMA with the
+assistance of a server side CPU for serialization.
 
 \textbf{Cell~\cite{cell}} Investigates the optimal interplay of async client
-side requests and server side processing by developing a novel B-Tree structure.
-In cell clients perform reads, while the server does the work to process writes
+side requests and server-side processing by developing a novel B-Tree structure.
+In Cell clients perform reads, while the server does the work to process writes
 similar to Pilaf.
 %
 Servers carefully apply locks to internal B-tree nodes to ensure that concurrent
-client traversals of the tree are always valid. Clients cache the trees upper
-level metadata including key ranges of meganodes (small partitions of the
+client traversals of the tree are always valid. Clients cache the tree's
+upper-level metadata including key ranges of meganodes (small partitions of the
 btree), and the depth of the trees.
 %
-Keys are protected in two ways, firstly ranges are projected by version numbers.
+Keys are protected in two ways: firstly ranges are projected by version numbers.
 The version numbers ensure that the root node is the same as the version applied
-to the write, two version updates are appled per write so that a concurrent
-client can detect a partially complete write. Additionally keys are projected by
-a CRC the same is in Pilaf to prevent read/write tearing.
+to the write; two version updates are applied per write so that a concurrent
+client can detect a partially complete write. Additionally keys are protected by
+a CRC to prevent read/write tearing.
+
+Client-side traversals of the B-tree have poor performance. Each traversal takes
+up to 5 round trips to completely traverse the meganodes. They justify their
+choice by stating that RDMA is fast. These operations create significant latency
+spikes for operations, and inflate bandwidth costs.
 %
-Client side traversals of the B-Tree are poor, taking up to 5 RTT to complete
-the traversal of the meganodes. They justify their choice by stating that RDMA
-is fast. These operations create significant latency spikes for operations, and
-inflate bandwidth costs.
-%
-Cell makes use of opportunistic reads, that is that it assumes that the state of
+Cell makes use of opportunistic reads: that is that it assumes that the state of
 the tree is readable when reads are attempted, if the server has some subset of
-the tree locked during read traversal, the client fails and then retries. This
-is true when version, and CRC values are invalid. Cell is not entirely
-opportunistic or lock free as on the sever side locks are attained and
+the tree locked during read traversal, the client fails and then retries.
+Failures occur when the version, and CRC values are invalid. Cell is not
+entirely opportunistic or lock free as on the sever side locks are attained and
 serialized in the traditional way. However the techniques of opportunistic
 concurrency, i.e. ensuring that each operation keeps the structure in a
 consistent state are used by Cell.
@@ -907,7 +915,6 @@ consistent state are used by Cell.
 % cool if the NICs could basically just work on ethernet packets, and then if we
 % wanted we could interpose on the application level info whenever we wanted.
 % \todo{}
-
 
 %currently just a jotting area for ideas.
 
