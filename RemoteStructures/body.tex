@@ -689,7 +689,7 @@ multi-pointer intermediate states to be a bad choice for disaggregated data
 structures as the complexity, and traversal time lead to errors, and poor tail
 latencies.
  
-Multiple implementations of concurrent B-Trees have been
+Multiple implementations of concurrent B-trees have been
 proposed~\cite{read-concur-btree,lock-free-btree}. The tradeoff between full
 lock freedom and concurrent access is a high degree of complexity. Concurrent
 reads and writes are easily achieved by only locking leaf nodes. To achieve full
@@ -842,7 +842,7 @@ line of work largely forgoes pure one-sided operations for RDMA with the
 assistance of a server side CPU for serialization.
 
 \textbf{Cell~\cite{cell}} Investigates the optimal interplay of async client
-side requests and server-side processing by developing a novel B-Tree structure.
+side requests and server-side processing by developing a novel B-tree structure.
 In Cell clients perform reads, while the server does the work to process writes
 similar to Pilaf.
 %
@@ -1050,26 +1050,36 @@ heavy.
 possible to read invalid data via \textbf{race} condition}
 
 
-\textbf{Sherman B-Tree~\cite{sherman}}
+\textbf{Sherman B-tree~\cite{sherman}}
 %%
-is a complete implementation of a B-Tree for remote memory.
-It makes use of many optimizations for remote memory, including some techniques
-not explicitly included in our high level comparison of techniques. Sherman
-makes use of optimistic concurrency in order to implement locks. While they
-acknowledge that their locking is potentially slow, they make two key
-optimizations. Firstly they place course grained locks onto NIC device memory,
-this optimization tipples their theoretical throughput. Second they use two
-tiers of locking, the aforementioned NIC locks are global, and protect writes to the
-entire tree. Local lock tables are implemented on clients in a flat combining
-fashion to reduce contention on the server side, and allow for local degrees of
+is a complete implementation of a B-tree for remote memory.  It makes use of
+many optimizations for remote memory, including some techniques not explicitly
+included in our high-level comparison of techniques. Sherman makes use of
+optimistic concurrency in order to implement locks. While they acknowledge that
+their locking is potentially slow, they make two key optimizations. Firstly they
+place course-grained locks onto NIC device memory, this optimization triples
+their theoretical locking throughput. Second they use two tiers of locking, the
+aforementioned locks in NIC memory are global and protect writes to the entire
+tree. Local lock tables are implemented on clients in a flat combining fashion
+to reduce contention on the server side, and allow for local degrees of
 fairness.
 
-Reads are totally async and use entry level version numbers to validate
-themselves. Lookups can fail frequently, and the remedy is to retry. For
-instance overlapping reads and writes will lead to a retry. Range query are
-complex in that they do no contain consistent values. For transactional reads to
-occur reads must also lock. This is a strict lessening of constancy which may
-not be desireable for future applications.
+Reads are fully asynchronous and use version numbers for each KV entry as self
+validation. Lookups can fail frequently, and the remedy is to retry.  For
+instance overlapping reads and writes will lead to a retry. Range queries are
+complex in that they do no contain consistent values. The version numbers of
+each entry are checked after a range has been read to determine the degree of
+consistency the read achieved. Transactional reads are possible but require that
+a global lock is obtained.
+
+Sherman reduces the ordering requirement on the leaf nodes of it's tree.
+Traditional B-Trees have a full ordering requirement for leaves, while sherman
+has full associativity. Ordering is only required between leaves. This reduces
+write failures as writes can simply append to an open location, it also reduces
+write amplification because the entire sorted leaf does not need to be
+rewritten. Only when leaf nodes join or split is additional sorting or writing
+required.
+
 
 \textbf{Ford~\cite{ford}}
 %%
