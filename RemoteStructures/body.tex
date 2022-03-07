@@ -603,7 +603,7 @@ numbers of each read do not match, the read is aborted.
 %\multirow{5}{*}{\rotatebox[origin=c]{90}{\shortstack{Far-Memory \\ Structures}}}        & Clover~\cite{clover}                                    & \nullcirc &  \halfcirc &  \nullcirc & \fullcirc & \fullcirc  & \nullcirc & \nullcirc \\ \cdashline{2-9}
          & \shortstack{RACE}~\cite{write-op-hash}            & \fullcirc  & \fullcirc & \halfcirc & \fullcirc & \fullcirc & \nullcirc & \fullcirc \\ \cdashline{2-9}
          & Sherman~\cite{sherman}                            & \fullcirc & \fullcirc & \halfcirc & \fullcirc & \fullcirc & \fullcirc & \fullcirc \\ \cdashline{2-9}
-         & Ford~\todo{}                                          &  &  &  &  &  & \\ \cdashline{2-9}
+%         & Ford~\todo{}                                          &  &  &  &  &  & \\ \cdashline{2-9}
          & Mind~\cite{mind}                                                & \nullcirc & \halfcirc & \halfcirc & \nullcirc & \fullcirc & \nullcirc & \nullcirc \\ \hline
     \end{tabular}
 
@@ -1081,10 +1081,10 @@ rewritten. Only when leaf nodes join or split is additional sorting or writing
 required.
 
 
-\textbf{Ford~\cite{ford}}
-%%
-(This paper is obviously relevant, but the preprint is not out yet. Yizhou is
-going to work with them and may get me a copy prior to the RE deadline.)
+% \textbf{Ford~\cite{ford}}
+% %%
+% (This paper is obviously relevant, but the preprint is not out yet. Yizhou is
+% going to work with them and may get me a copy prior to the RE deadline.)
 
 \subsection{Network Centralized Disaggregation}
 
@@ -1155,7 +1155,7 @@ in-network serialization should have efficient end-to-end approaches which will
 be accelerated by small amounts of resolution logic in-network. One piece of
 work has demonstrated how Clovers read and write contention can be removed using
 this approach using a commodity server as a mock programmable
-switch~\citeP{Grant2021InContRes}.
+switch~\cite{Grant2021InContRes}.
 
 We end by describing how RACE may benefit from in-network logic. RACE's
 search step has two potential destinations due to their power of two load
