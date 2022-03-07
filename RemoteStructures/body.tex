@@ -75,7 +75,7 @@ their cache, paging policy, and round trip cost. As such each system is
 primarily constrained by the access pattern of their programs. We consider
 locality optimization to be a single facet of the design space for
 disaggregation and address it more fundamentally in
-Section~\ref{sec:techniques}. We reference systems only in terms of their data
+Section~\ref{sec:solutions}. We reference systems only in terms of their data
 structure design.
 %%
 Moreover, this paper is not theory. All data structures investigated within have been
@@ -132,6 +132,7 @@ throughput and latency.
 
 \section{Background}
 
+
 %Disaggregated Model
 Disaggregation is a general term used for the separation of resources by a
 network. The composition and topology of the network plays a large role in how a
@@ -145,23 +146,22 @@ memory traffic~\cite{disandapp}. Proposals for other topologies such as torus
 exist, however we scope ourselves to the prior configuration. In the rack scale
 model we consider all memory traffic in a rack transits a centralized switch,
 and all the traffic for an individual machine flows through that machines NIC.
-Figure~\cite{fig:rack-scale} provides a high level overview of this system
+Figure~\ref{fig:rackscale} provides a high level overview of this system
 architecture.
-
 
 \begin{figure}
     \begin{centering}
     \includegraphics[width=0.45\textwidth]{fig/rack.pdf}
-
     \caption{ A rack-scale computer is a single rack of network connected
     machines, each with a specific purpose, compute, memory, or storage. Each
     machine is equipped with a high performance NIC (100Gbps+), interconnected
     with a top of rack switch. Many designs include some degree of
     programmability in the network~\cite{disandapp}.
     }
+    \label{fig:rackscale}
     \end{centering}
-    \label{fig:rack-scale}
 \end{figure}
+
 
 Disaggregation assumes that memory operations, i.e. reads and writes are issued
 over the network rather than across a traditional memory bus. RDMA is a popular
