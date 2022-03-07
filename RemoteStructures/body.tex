@@ -8,9 +8,8 @@ Increased latency only becomes more problematic when disaggregated memory is
 shared, and contended for. In a non-disaggregated setting, the memory of a
 remote machine is co-located with a CPU which serializes memory accesses, for
 example though RPC calls. Such serialization is impossible in the disaggregated
-setting as by definition no such remote CPU exists.  This absence causes the
-cost of traditional serialization mechanisms, such as locks, to skyrocket when
-naively ported to disaggregated memory.
+setting as by definition no such remote CPU exists. The cost of locking and
+serialization skyrockets without a CPU close to the contended memory.
 
 %% contention
 Fighting high cost coordination is not a new battle. Entire classes of lockless
@@ -51,13 +50,13 @@ However, little conformity has been reached in terms of system design and
 expectation. One of the few salient points, is that the cost of coordination is
 high, and is therefore often avoided. The few prototypes which do coordinate
 accesses to far memory have sophisticated and complex techniques for achieving
-serialization~\cite{clover,one-sided-hash,sherman,ford}. Our insight is that nearly all of
-the serialization and synchronization issues associated with memory
-disaggregation are not new. We have found that many practical approaches can be
-mined from prior literature aimed at scaling to many cores, or directly access
-the memory of a remote machine. This insight ends where programmable networking
-begins, as little prior work (with the exception of PIMM memory~\cite{near-memory-structs}),
-includes programmability on the data path.
+serialization~\cite{clover,one-sided-hash,sherman,ford}. Our insight is that
+nearly all of the serialization and synchronization issues associated with
+memory disaggregation are not new. We have found that many practical approaches
+can be mined from prior literature aimed at scaling to many cores, or directly
+access the memory of a remote machine. The off the shelf practicality ends where
+programmable networking begins, as little prior work (with the exception of PIMM
+memory~\cite{near-memory-structs}), includes programmability on the data path.
 
 %% What this paper is not
 This paper is focused on data structures for disaggregation, it is not a systems
@@ -95,8 +94,10 @@ identifying new and existing design principles for disaggregated memory.
 In this paper we survey prior algorithmic and data structure trends driven by
 shared memory scalability and ask the question \textit{Which existing techniques
 apply to memory disaggregation, and what new techniques are enabling the
-technology?} This survey covers concurrent data structures, NUMA data
-structures, and RDMA key value stores which make use of one-sided operations.
+technology?} 
+
+This survey covers concurrent data structures, NUMA data
+structures, and RDMA key-value stores which use one-sided read/write verbs.
 We then analyse the first few works on disaggregation specific data structures
 and identify the techniques used to achieve high performance in the face of
 contention. When a project does not make use of an identified technique we
@@ -132,26 +133,23 @@ throughput and latency.
 
 \section{Background}
 
-
-%Disaggregated Model
-Disaggregation is a general term used for the separation of resources by a
-network. The composition and topology of the network plays a large role in how a
-disaggregated computer will manifest. The disaggregated model we consider most
-prevalent is that of the rack-scale computer. In the rack scale design servers
-in a rack have a resource role - compute, memory, storage, accelerator. Each
-server is connected via a fast network i.e. 100-400Gbps ethernet or above. The
-topology of the rack is up for debate, however many suggest that each server is
-interconnected with a traditional TOR, or with a special purpose middlebox for
-memory traffic~\cite{disandapp}. Proposals for other topologies such as torus
-exist, however we scope ourselves to the prior configuration. In the rack scale
-model we consider all memory traffic in a rack transits a centralized switch,
-and all the traffic for an individual machine flows through that machines NIC.
+Networks play a large role in determining how disaggregated computers will
+manifest.  The disaggregated model we consider most prevalent is that of the
+rack-scale computer. In the rack scale design servers in a rack have a resource
+role - compute, memory, storage, accelerator. Each server is connected via a
+fast network i.e. 100-400Gbps ethernet or above. The topology of the rack is up
+for debate, however many suggest that each server is interconnected with a
+traditional TOR, or with a special purpose middlebox for memory
+traffic~\cite{disandapp}. Proposals for other topologies such as torus exist,
+however we scope ourselves to the prior configuration. In the rack scale model
+we consider all memory traffic in a rack transits a centralized switch, and all
+the traffic for an individual machine flows through that machines NIC.
 Figure~\ref{fig:rackscale} provides a high level overview of this system
 architecture.
 
-\begin{figure}
+\begin{figure}[t]
     \begin{centering}
-    \includegraphics[width=0.45\textwidth]{fig/rack.pdf}
+    \includegraphics[width=0.40\textwidth]{fig/rack.pdf}
     \caption{ A rack-scale computer is a single rack of network connected
     machines, each with a specific purpose, compute, memory, or storage. Each
     machine is equipped with a high performance NIC (100Gbps+), interconnected
@@ -199,7 +197,7 @@ hardware can offer~\cite{herd,storm}. The direct applicability of prior KVS work
 and disaggregation end when two sided approaches like RPC or two sided RDMA are
 utilized for serialization. For example, reads can be performed asynchronously
 using one sided operations, while writes are serialized by a two sided
-operation~\cite{pilaf}. This allows a CPU to perform the locking and execute
+operation~\cite{pilaf}. RPCs allow a CPU to perform the locking and execute
 multi step critical sections, such as pointer chasing, with low latency.
 Unfortunately these hybrid approaches are not available to pure disaggregated
 systems.
@@ -211,14 +209,14 @@ systems.
 The largest challenge in realizing disaggregation is latency. We have arrived at
 a point in history where disaggregation has become feasible only due to dramatic
 improvements in networking hardware which allow for ultra low latency access to
-remote memory. This trend is expected to continue, and the overhead of remote
-memory will continue to shrink as a function of network hardware performance.
-Even when network hardware technology has peaked, and remote memory is at
-its lowest cost, it will still be much more expensive than a local memory
-access due to physical limitations such as the speed of light. In the
-expectation of eventual reasonable, but not low cost disaggregated memory access
-we focus on the fundamental challenges that will still need to be solved for
-general purpose computing. 
+remote memory. The performance of programmable networks is expected to continue
+increasing, and the overhead of remote memory will continue to shrink as a
+function of network hardware performance.  Even when network hardware technology
+has peaked, and remote memory is at its lowest cost, it will still be much more
+expensive than a local memory access due to physical limitations such as the
+speed of light. In the expectation of eventual reasonable, but not low cost
+disaggregated memory access we focus on the fundamental challenges that will
+still need to be solved for general purpose computing. 
 
 The next big challenge is sharing and contention. Disaggregation suffers the
 same issues around sharing and contention that any multiprocessor system does,
@@ -234,26 +232,26 @@ bandwidth, or memory which complicate the evaluation of effective techniques.
 
 \textbf{Mutual Exclusion and Round Trips:} 
 %%
-Most common techniques for locking
-and mutual exclusion scale poorly to disaggregated memory. For instance the
-common approach of acquiring a lock, performing work, and then unlocking, is not
-expensive when memory is only a few nanoseconds away, but when the lock is in
-remote memory each test operation requires a round trip.  Reading, and then
-writing to mutually exclusive data requires at least four round trips. The first
-to acquire the lock, the second to read the data, another to write an update,
-and a final message to unlock.  Amortizing this cost is essential for
-disaggregation. The cost can be reduced using patterns common to opportunistic
-algorithms. The same operation requires only three round trips by by performing
-the read first, then the write, and finally an opportunistic commit operation to
-make the write visible to other threads. Typically this will fail if the read
-was stale, or another thread concurrently wrote to the data structure. This can
-be further improved by amortizing the reads and writes. For instance reads of
-shared data can be executed periodically out of band with writes to keep a local
-cache up to date.  Writes can be executed with the expectation that the
-asynchronously read data is up to date, and the opportunistic commit operation
-can be run simultaneously with the write. In the best case this reduces the
-observed latency on a write to a single round trip, but it can easily degrade to
-many retires if write or read data is contested. 
+Most common techniques for locking and mutual exclusion scale poorly to
+disaggregated memory. For instance the common approach of acquiring a lock,
+performing work, and then unlocking, is not expensive when memory is only a few
+nanoseconds away, but when the lock is in remote memory each test operation
+requires a round trip.  Reading, and then writing to mutually exclusive data
+requires at least four round trips. The first to acquire the lock, the second to
+read the data, another to write an update, and a final message to unlock.
+Amortizing this cost is essential for disaggregation. The cost can be reduced
+using patterns common to opportunistic algorithms. The same operation requires
+only three round trips by by performing the read first, then the write, and
+finally an opportunistic commit operation to make the write visible to other
+threads. Typically this will fail if the read was stale, or another thread
+concurrently wrote to the data structure. The performance can be further
+improved by amortizing the reads and writes. For instance reads of shared data
+can be executed periodically out of band with writes to keep a local cache up to
+date.  Writes can be executed with the expectation that the asynchronously read
+data is up to date, and the opportunistic commit operation can be run
+simultaneously with the write. In the best case this reduces the observed
+latency on a write to a single round trip, but it can easily degrade to many
+retires if write or read data is contested. 
 
 % Clover follows this last
 % pattern closely, and achieves good performance on read heavy workloads, but
@@ -329,7 +327,7 @@ device mapped memory, this prevents each lock request from making two PCIe round
 trips. Network devices such as ConnectX series NICs expose this memory to
 programmers, but it is limited, and demands that data structure which want to
 use it have their memory layout organized accordingly~\cite{sherman}. One final
-pitfall of RDMA atomics for locks is that they lack fairness. This can lead to
+pitfall of RDMA atomics for locks is that they lack fairness. Lack of fairness can lead to
 extreme tail latencies which is not ideal for memory operations.
 
 \section{Solutions}
@@ -388,10 +386,10 @@ potentially many elements must be read, and reorganized to achieve an operation
 such as an insert.
 
 For example Sherman~\cite{sherman} uses relaxed ordering in its B-tree buckets
-so that writes can succeed more frequently in $O(1)$. This also has the effect
-of reducing write amplification as only a single entry is written, and not an
-entire ordered bucket. Similarly One-Sided-Hash~\cite{one-sided-hash} uses
-associative cashing and power of two in order to allow for multiple write
+so that writes can succeed more frequently in $O(1)$. Relaxed ordering also has
+the effect of reducing write amplification as only a single entry is written,
+and not an entire ordered bucket. Similarly One-Sided-Hash~\cite{one-sided-hash}
+uses associative cashing and power of two in order to allow for multiple write
 locations. By relaxing the structural invariants higher write performance is
 achieved. A structures overall performance will be impacted by how data layout
 is relaxed. As detailed in the prior section if the layout retains locality
@@ -412,8 +410,8 @@ addresses. A page table walk is expensive for disaggregated memory as each
 levels resolution requires a round trip. Clio achieves an $O(1)$ page table
 lookup by pushing the complexity to malloc. The page table is a hash of virtual
 addresses, calls to malloc generate candidate virtual addresses until one with
-no collisions in the hash is found. This allows for all page table lookups to
-occur with a single round trip.
+no collisions in the hash is found. Removing collisions allows for all page
+table lookups to occur with a single round trip.
 
 Trading off algorithmic complexity with computation complexity is largely
 unexplored territory, fortunately some design pitfalls can be determined with
@@ -475,11 +473,10 @@ have some degree of colocated compute. Coalescing remote requests requires
 careful design considerations. If all requests from a rack were routed through a
 single core the requests would quickly bottleneck. A simple alternative would
 have a coalescing core only issue locking requests to remote memory, while each
-other core managed their own reads and writes.
-Properties such as fairness are more easily enforced at the client side. For
-example queues are simple. This can allow for cluster approximate fairness where
-each machine, or NUMA domain is fair with respect to itself, but not the system
-as a whole.
+other core managed their own reads and writes.  Properties such as fairness are
+more easily enforced at the client side. For example queues are simple. Queues
+enable cluster approximate fairness where each machine, or NUMA domain is fair
+with respect to itself, but not the system as a whole.
 
 \subsection{Self verifying data} 
 %%
@@ -488,16 +485,16 @@ of client side CPU's and other RDMA clients. In general only when requests are
 on the same reliable connection is the visibility of operations guaranteed to be
 in order. From the perspective of other observers writes may be incomplete, or
 out of order. Only when expensive atomic operations are used will any
-consistency between connection be guaranteed by the NIC.  This leads to read
-tearing as a common case, where either the host CPU, or a client RDMA request
-sees a partially completed write. 
+consistency between connection be guaranteed by the NIC. Visible incomplete
+writes cause read tearing as a common case, where either the host CPU, or a
+client RDMA request sees a partially completed write. 
 
 In the absence of serialization the data itself can be made self verifying.
 Pilaf, and Cell are notable examples of KV stores which use self verifying
 data~\cite{pilaf,cell}. Self verifying data comes in a variety of forms. The
 most common is the inclusion of a checksum, typically a CRC along with the data.
 If a write is partially completed a client can detect the inconsistency by
-computing the checksum. This adds CPU cost for the sake of concurrency. For
+computing the checksum. CRCs add CPU cost for the sake of concurrency. For
 transactional operations which require multiple independent reads to be
 consistent version numbers are used. If at the end of an operation the version
 numbers of each read do not match, the read is aborted.
@@ -599,12 +596,13 @@ numbers of each read do not match, the read is aborted.
          % & % erpc~\cite{erpc}                                        & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc \\ \hdashline
          %& storm~\cite{storm}                                      &  &  &  &  &  &  &  \\ \cdashline{2-9}
          % & 1RMA~\cite{1rma}                                        &  &  &  &  &  &  &  \\ \hline \hline
-\multirow{5}{*}{\rotatebox[origin=c]{90}{\shortstack{\small Disaggregated \\ \small Datastructures }}}        & Clover~\cite{clover}                                    & \nullcirc &  \halfcirc &  \nullcirc & \fullcirc & \fullcirc  & \nullcirc & \nullcirc \\ \cdashline{2-9}
+\multirow{4}{*}{\rotatebox[origin=c]{90}{\shortstack{\small Disaggregated \\ \small Datastructures }}}        & Clover~\cite{clover}                                    & \nullcirc &  \halfcirc &  \nullcirc & \fullcirc & \fullcirc  & \nullcirc & \nullcirc \\ \cdashline{2-9}
+%\multirow{5}{*}{\rotatebox[origin=c]{90}{\shortstack{\small Disaggregated \\ \small Datastructures }}}        & Clover~\cite{clover}                                    & \nullcirc &  \halfcirc &  \nullcirc & \fullcirc & \fullcirc  & \nullcirc & \nullcirc \\ \cdashline{2-9}
 %\multirow{5}{*}{\rotatebox[origin=c]{90}{\shortstack{Far-Memory \\ Structures}}}        & Clover~\cite{clover}                                    & \nullcirc &  \halfcirc &  \nullcirc & \fullcirc & \fullcirc  & \nullcirc & \nullcirc \\ \cdashline{2-9}
          & \shortstack{RACE}~\cite{write-op-hash}            & \fullcirc  & \fullcirc & \halfcirc & \fullcirc & \fullcirc & \nullcirc & \fullcirc \\ \cdashline{2-9}
          & Sherman~\cite{sherman}                            & \fullcirc & \fullcirc & \halfcirc & \fullcirc & \fullcirc & \fullcirc & \fullcirc \\ \cdashline{2-9}
 %         & Ford~\todo{}                                          &  &  &  &  &  & \\ \cdashline{2-9}
-         & Mind~\cite{mind}                                                & \nullcirc & \halfcirc & \halfcirc & \nullcirc & \fullcirc & \nullcirc & \nullcirc \\ \hline
+         & Mind~\cite{mind}                                              & \nullcirc & \halfcirc & \halfcirc & \nullcirc & \fullcirc & \nullcirc & \nullcirc \\ \hline
     \end{tabular}
 
     \caption{Cross section of systems and techniques. Full circles
@@ -661,15 +659,15 @@ dequeue queue items in a single operation. The pattern for enqueue is to write
 out new data, search concurrently for the tail, and then attempt a CAS to
 connect the new element. If failure occurs because a concurrent process wrote to
 the tail, the CAS fails, and the procedure retires the traversal until success.
-This pattern of write first, commit after is common among concurrent algorithms.
+The pattern of write first, commit after is common among concurrent algorithms.
 
 Fomitchev et.al introduces lock free linked lists and skip
 lists~\cite{lock-free-skip}. Similar to queues this algorithm allocates tiers of
-a skiplist and then incrementally commits them via CAS. This technique requires
-additional care as the data structures are more complex, and updates cannot be
-committed in a single CAS operation. To solve this problem CAS's are used to
-first invalidate nodes, similar to locking, and then updates are applied via CAS
-to include new nodes in the skiplist. This work also introduces safety
+a skiplist and then incrementally commits them via CAS. Incremental commits
+require additional care as the data structures are more complex, and updates
+cannot be committed in a single CAS operation. To solve this problem CAS's are
+used to first invalidate nodes, similar to locking, and then updates are applied
+via CAS to include new nodes in the skiplist. This work also introduces safety
 optimizations such as pointing deleted nodes in lists back to their previous
 node to keep the structure traversals valid while updates occur.
 
@@ -677,17 +675,17 @@ Ellen et al. introduced the first instance of lock free binary search trees
 (BST)~\cite{non-block-binary}.  Binary trees represent a far more complex
 structure to manage concurrently than linked lists. During insertions BST
 rotations require multiple pointer updates, CAS operations can typically, due to
-spacial constraints, only update a single pointer per instruction. This leads to
-a variety of complex corner cases which leave the BST in invalid states during
-rotations.  To prevent invalid states lock free BSTs introduce complex
-intermediate states which are designed to route concurrent processes to the
-correct locations during updates. These structures take many CAS and write
-operations to complete. In the space of resource disaggregation O(1) operations
-are ideal, intricate and complex pointer structures care both prone to error,
-and cause many round trips to traverse. We consider the requirement for complex
-multi-pointer intermediate states to be a bad choice for disaggregated data
-structures as the complexity, and traversal time lead to errors, and poor tail
-latencies.
+spacial constraints, only update a single pointer per instruction. Single
+location CAS leads to a variety of complex corner cases which leave the BST in
+invalid states during rotations.  To prevent invalid states lock free BSTs
+introduce complex intermediate states which are designed to route concurrent
+processes to the correct locations during updates. These structures take many
+CAS and write operations to complete. In the space of resource disaggregation
+O(1) operations are ideal, intricate and complex pointer structures care both
+prone to error, and cause many round trips to traverse. We consider the
+requirement for complex multi-pointer intermediate states to be a bad choice for
+disaggregated data structures as the complexity, and traversal time lead to
+errors, and poor tail latencies.
  
 Multiple implementations of concurrent B-trees have been
 proposed~\cite{read-concur-btree,lock-free-btree}. The tradeoff between full
@@ -702,22 +700,22 @@ investigated empirically per data structure.
 
 \subsection{Multicore and NUMA}
 
-\textbf{Flat Combining~\cite{flat-combine}:} Locks and CAS are expensive in their
-own right, when highly contested the real cost of using either mechanism can
-explode as cache protocols, and fairness skew can inflate tail latencies. Flat
-combining dynamically creates a leader for each access to a critical section.
-The leader performs the work of all concurrent requesters in a serialized
-fashion and notifies them upon completion. This technique is extremely powerful
-and is used in NUMA algorithms~\cite{black-box-numa} as well as
-RDMA~\cite{flock}. The key insight is that the expense of a critical
-section can be amortized significantly if is executed within the local confines
-of a leader, this simultaneously allows for batching. Individual cores may not
-be able to push the request limit of RDMA (7 cores for 8byte 120MOPS on CX5),
-however on any particular algorithm they may. In these cases batching will
-improve performance. For instance Clover~\cite{clover} a disaggregated key-value
-store described in detail later on, would see a significant performance boost if
-it applied flat combining if and when its clients were co-located. This benefit
-is showcased in a recent disaggregated B-tree Sherman~\cite{sherman}, discussed
+\textbf{Flat Combining~\cite{flat-combine}:} Locks and CAS are expensive in
+their own right, when highly contested the real cost of using either mechanism
+can explode as cache protocols, and fairness skew can inflate tail latencies.
+Flat combining dynamically creates a leader for each access to a critical
+section.  The leader performs the work of all concurrent requesters in a
+serialized fashion and notifies them upon completion. Combining is extremely
+powerful and is used in NUMA algorithms~\cite{black-box-numa} as well as
+RDMA~\cite{flock}. The key insight is that the expense of a critical section can
+be amortized significantly if is executed within the local confines of a leader,
+this simultaneously allows for batching. Individual cores may not be able to
+push the request limit of RDMA (7 cores for 8byte 120MOPS on CX5), however on
+any particular algorithm they may. In these cases batching will improve
+performance. For instance Clover~\cite{clover} a disaggregated key-value store
+described in detail later on, would see a significant performance boost if it
+applied flat combining if and when its clients were co-located. This benefit is
+showcased in a recent disaggregated B-tree Sherman~\cite{sherman}, discussed
 later in detail as well.
 
 \textbf{Hopscotch Hashing~\cite{hopscotch}} introduces a cache optimized
@@ -731,13 +729,13 @@ finding a candidate write is performed iteratively on neighboring buckets until
 a new spot within range is found for the new write. If too many hops are taken,
 the hash doubles in side and all items are rehashed.
 
-This algorithm is designed to be cache efficient, as lookups would likely be on
-the same cache line. It has the additional advantage that when a value is
+Hopscotch hashing is designed to be cache efficient, as lookups would likely be
+on the same cache line. It has the additional advantage that when a value is
 written, its location is deterministic within a bound. In remote memory this
 allows for $O(1)$ lookups as the size of the read can be expanded to included
-the max distance an entry is from its starting location. This structure is
-unfortunate in that writes can take many round trips and complex locking due to
-the number of rewrites when the hopscotch algorithm is invoked.
+the max distance an entry is from its starting location. The structure has the 
+unfortunate side effect that writes can take many round trips and complex
+locking due to the number of rewrites when the hopscotch algorithm is invoked.
 
 
 \textbf{Blackbox Numa~\cite{black-box-numa}} proposes node replication, a
@@ -933,10 +931,10 @@ below are those which partition their remote memory.
 
 \textbf{Clover~\cite{clover}}
 %%
-is an RDMA key-value store designed for persistent, disaggregated memory. All
-of its remote memory operations are performed via one-side RDMA, with the
-exception of two sided metadata operations sent to non-disaggregated metadata
-servers. This architecture is reached by an empirical evaluation of 4
+is an RDMA key-value store designed for persistent, disaggregated memory. All of
+its remote memory operations are performed via one-side RDMA, with the exception
+of two sided metadata operations sent to non-disaggregated metadata servers. The
+decision to use of metadata servers is reached by an empirical evaluation of 4
 alternative systems, one which uses a centralized coordinator, and another with
 no metadata server at all. The out of band approach is found to perform well for
 read only, and sparse write workloads. 
@@ -958,7 +956,7 @@ There are a few optimizations Clover did not include which have the potential to
 improve its performance. Here we comment on the potential optimizations. Clover
 does not make use of self verifying data structures, with the exception of its
 pDPM direct variant. Clover writes take two round trips in the common case, the
-first to write, the second to CAS. This ensure the write completes prior to
+first to write, the second to CAS. The second CAS ensures the write completes prior to
 committing with a CAS.  If Clover were clover to have a self verifying write,
 the CAS could be issued concurrently with the write. Here if the CAS failed, it
 could be reissued quickly. If the CAS succeeded and made the write visible prior
@@ -967,7 +965,7 @@ incomplete write data.
 
 Clover makes no assumptions about client co-residency. In practice clover could
 gain significant benefits by coalescing client writes with techniques such as
-flat combining. This speculation is based on the analysis that Clovers write
+flat combining. Our speculation is based on the analysis that Clovers write
 throughput under 50/50 read write is well below the throughput of a single queue
 pair~\cite{design-guidelines}. It could likely gain performance boosts similar
 to Sherman~\cite{sherman}, by taking this optimizations into account. 
@@ -979,12 +977,12 @@ gain more information in a single round trip. Figure~\ref{fig:clover_alt}
 illustrates Clovers memory layout on the left, in which process isolated memory
 references each other via pointers. On the right an alternative design shows a
 similar structure which allows for traversals using fewer round trips as the
-size of the read can be expanded linearly to capture more of the pointers. This
-layout is not identical as reads have no explicit way of determining that a
-value has become invalid by reading the data itself. An additional write would
-be required to mark data as no longer valid. These optimization examples are
-intended to illustrate how the techniques from Table~\ref{tab:1} might be
-applied to an existing solution.
+size of the read can be expanded linearly to capture more of the pointers. The
+proposed layout layout is not identical as reads have no explicit way of
+determining that a value has become invalid by reading the data itself. An
+additional write would be required to mark data as no longer valid. These
+optimization examples are intended to illustrate how the techniques from
+Table~\ref{tab:1} might be applied to an existing solution.
 
 \begin{figure}
     \includegraphics[width=0.45\textwidth]{fig/clover_alt.pdf}
@@ -1003,11 +1001,11 @@ makes use of additional memory to reduce conflicts and contention. RACE notes
 that prior hash solutions can incur multiple round trips when the lookups fail,
 and that if the index must shuffle data such as cuckoo and hopscotch hashing,
 lock contention is inflated. RACE caches client metadata locally to avoid
-performing directory lookups in the common case. This is a critical design point
-as RACE makes use of a two level directory which changes each time the hash
-table expands. The local client cache allows for O(1) lookups by examining the
-metadata on the client, and only traversing the true directory when version
-numbers have changed.
+performing directory lookups in the common case. Client caching is a critical
+design point as RACE makes use of a two level directory which changes each time
+the hash table expands. The local client cache allows for O(1) lookups by
+examining the metadata on the client, and only traversing the true directory
+when version numbers have changed.
 
 RACE main contribution is a hash index which is fast to query and expand using
 one-sided reads and writes. Read expansion is used liberally to increase the
@@ -1020,7 +1018,7 @@ overflow. The power of two is used to select multiple locations for writes. In
 total this forces reads to read two bucket locations and two overflow location
 per read.  With an associativity of 4. In total this gives an extremely high
 likelihood of $O(1)$ reads while coming at a cost of 16x the read bandwidth on
-the index.  This read inflation is amortized by only performing two reads, and
+the index. Read inflation is amortized by only performing two reads, and
 batching them together asynchronously. While this reduces the overall load on
 keys, is half's the theoretical reads per second due to the packet processing
 ability of the receiving side NIC. 
@@ -1074,11 +1072,11 @@ a global lock is obtained.
 
 Sherman reduces the ordering requirement on the leaf nodes of its tree.
 Traditional B-Trees have a full ordering requirement for leaves, while sherman
-has full associativity. Ordering is only required between leaves. This reduces
-write failures as writes can simply append to an open location, it also reduces
-write amplification because the entire sorted leaf does not need to be
-rewritten. Only when leaf nodes join or split is additional sorting or writing
-required.
+has full associativity. Ordering is only required between leaves. Order
+relaxation reduces write failures as writes can simply append to an open
+location, it also reduces write amplification because the entire sorted leaf
+does not need to be rewritten. Only when leaf nodes join or split is additional
+sorting or writing required.
 
 
 % \textbf{Ford~\cite{ford}}
@@ -1089,7 +1087,7 @@ required.
 \subsection{Network Centralized Disaggregation}
 
 To this point each system relies on predetermined hardware functionality such as
-the RDMA interface. This avoids the use of programmable networking hardware
+the RDMA interface. RDMA verbs avoid the use of programmable networking hardware
 which has the potential to greatly accelerate disaggregated systems as they hold
 a centralized location within a disaggregated system. As of yet few systems are
 build which use in network programs to accelerate disaggregation.
@@ -1105,14 +1103,15 @@ provides both memory protection and cache coherence.
 
 As MIND is in-network its constraints differ from all prior systems as request
 serialization is cheap, but memory is extremely expensive (switch SRAM). In this
-way its only cousin in this work is Sherman, as they both require careful use
-of in network locks. MIND uses a sophisticated page table splitting algorithm,
+way its only cousin in this work is Sherman, as they both require careful use of
+in network locks. MIND uses a sophisticated page table splitting algorithm,
 similar to dynamic huge pages which uses minimal memory while providing
 protection to a large space of virtual addresses. MIND does share some
 characteristics with prior work, in that due to constraints it relaxes the
-definitions of its structures, such as the virtual memory space of remote
-memory itself, which it combines into a single contiguous address space. This
-allows MIND to only keep a translation entry for each memory server it manages.
+definitions of its structures, such as the virtual memory space of remote memory
+itself, which it combines into a single contiguous address space. Using a single
+address space allows MIND to only keep a translation entry for each memory
+server it manages.
 
 
 \section{Middlebox Opportunities}
@@ -1133,7 +1132,7 @@ none target disaggregated
 systems~\cite{netlock,netchain,netcache,netkv,kv-direct,mind}. What each of
 these systems has in common is that because network devices serialize data at
 the physical level all of their applications are centralized and implicitly
-serialized. This intrinsically cheap in-network serialization can be easily used
+serialized. Network serialization is intrinsically cheap and can be easily used
 to aid disaggregated applications where the cost of serialization is high.  The
 network has different constraints from disaggregated applications. The starkest
 of which is the cost of memory. Disaggregation promises large banks of cheap
@@ -1157,19 +1156,19 @@ work has demonstrated how Clovers read and write contention can be removed using
 this approach using a commodity server as a mock programmable
 switch~\cite{Grant2021InContRes}.
 
-We end by describing how RACE may benefit from in-network logic. RACE's
-search step has two potential destinations due to their power of two load
-balancing. Every read issues two packets. A middlebox can reduce this
-requirement to one packet per read by keeping a single bit per key which denotes
-which hash the key used. When the packet arrives the switch performs the hash,
-and if the packet is sent to the wrong destination it steers it to the correct
-one. As this only requires one bit per key and cuts the packets per second by
-half, it would likely be a beneficial optimization. Further each read requires
-two round trips. This could be reduced to one for hot keys. The middlebox could
-maintain a cache of hot keys (top n), when a search packet is found, if the key
-gets a hit, the read is transformed in location and size to the destination
-address of the true read. For hot keys this requires 48 bits per key given
-RACE's addressing scheme.
+We end by describing how RACE may benefit from in-network logic. RACE's search
+step has two potential destinations due to their power of two load balancing.
+Every read issues two packets. A middlebox can reduce this requirement to one
+packet per read by keeping a single bit per key which denotes which hash the key
+used. When the packet arrives the switch performs the hash, and if the packet is
+sent to the wrong destination it steers it to the correct one. As this only
+requires one bit per key and cuts the packets per second by half, it would
+likely be a beneficial optimization. Further each read requires two round trips.
+Read packets could be reduced to one for hot keys. The middlebox could maintain
+a cache of hot keys (top n), when a search packet is found, if the key gets a
+hit, the read is transformed in location and size to the destination address of
+the true read. For hot keys this requires 48 bits per key given RACE's
+addressing scheme.
 
 % The increased gap between computational resources and memory in the
 % disaggregated model leads to poor performance in some cases. The most blatant is
