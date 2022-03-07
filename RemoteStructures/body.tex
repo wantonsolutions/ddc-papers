@@ -1115,89 +1115,133 @@ memory itself, which it combines into a single contiguous address space. This
 allows MIND to only keep a translation entry for each memory server it manages.
 
 
-\section{Future Work Middlebox Incorporation}
+\section{Middlebox Opportunities}
 
-The increased gap between computational resources and memory in the
-disaggregated model leads to poor performance in some cases. The most blatant is
-serialization on contended resources. As noted in Sherman, Clover, Conscious
-Hashing~\cite{sherman,clover,one-sided-hash}, writes must be carefully
-coordinated to avoid collisions. Fast serialization can be achieved using a
-centralized source such as programable hardware in the network. This hardware
-performs serialization at the physical level, and is able to process millions of
-requests per second. Netlock~\cite{netlock} demonstrates that a switch can
-provide centralized locking for millions of requests per second. Mind,
-demonstrates that memory protection and cache coherence can be maintained by a
-switch~\cite{mind}, and NetChain demonstrated that a set of switches can be used
-to obtain millions of consensus operations per second. There are countless works
-on in network acceleration for a variety of tasks~\todo{ipipe,netcache,itterally all the things}.
+This work has focused on the difficulties of serialization in the disaggregated
+setting. As noted in Sherman, Clover, and
+RACE~\cite{sherman,clover,one-sided-hash}, writes must be carefully coordinated
+to avoid contention. We support the improvement of disaggregation through the
+improvement of data structures. However, considering the sharp benefits found in
+MIND by using a centralized programmable networking approach to we posit that
+future disaggregated systems will see high benefits from integrating their core
+functionality with network hardware. We conclude this work with a discussion of
+how programmable networks may be useful to improve the performance systems.
 
-Including a middlebox into the architectural design of a disaggregated system is
-a common pattern~\cite{disandapp}. In this model a centralized network device
-provides some memory services to the application such as memory protection. The
-performance benefit from serialization makes network devices tempting as a key
-component of disaggregated systems especially with the proliferation of
-programmable networking platforms such as Barefoot Tofino~\cite{tofino3} and
-Corundum~\cite{corundum} make developing such software more accessible than ever.
+The ability of programable networks to provide services capable of billions of
+operations per second has been demonstrated in numerous systems, however almost
+none target disaggregated
+systems~\cite{netlock,netchain,netcache,netkv,kv-direct,mind}. What each of
+these systems has in common is that because network devices serialize data at
+the physical level all of their applications are centralized and implicitly
+serialized. This intrinsically cheap in-network serialization can be easily used
+to aid disaggregated applications where the cost of serialization is high.  The
+network has different constraints from disaggregated applications. The starkest
+of which is the cost of memory. Disaggregation promises large banks of cheap
+DRAM, while programmable networks offer small amounts of expensive SRAM.
+Additionally the network has constrained compute, prior work has shown that
+offloading too much work to a centralized source performs far worse than well
+crafted concurrent programs~\cite{near-memory-structs}. Therefore, using the
+network for disaggregation is a balancing act between compute cost, memory
+usage, and the overall performance boost gained from serializing in the network.
+Figure~\ref{fig:middlebox_model} illustrates the gain or loss of performance
+from using an in network solution.
 
-However there is a sweet spot in terms of utility with programable network
-devices, Figure~\ref{fig:middlebox_model} shows a general model for network hardware
-performance as it does more work per packet. If the work necessary from a
-middlebox is higher than a specific number of cycles per packet, then the
-overall performance drops below the beneficial range. It has been show in
-simulations for PIM architectures that a centralized serialization point for
-operations like pointer chasing can slow down operations compared to well
-designed data structures for concurrency~\todo{pim Irina citation}.
+If we consider the model in Figure~\ref{fig:middlebox_model}, an ideal system is
+one which performs at line rate when no contention exists, and which can have
+it's contention resolved in-network using few cycles. Alternatively a system
+could choose to only have some of its contention resolved in network to reduce
+the cycles required. These two axioms suggest that data structures which use
+in-network serialization should have efficient end-to-end approaches which will
+be accelerated by small amounts of resolution logic in-network. One piece of
+work has demonstrated how Clovers read and write contention can be removed using
+this approach using a commodity server as a mock programmable
+switch~\citeP{Grant2021InContRes}.
 
-Therefore the choice of network computation is a balancing act for resource
-disaggregation. The balancing act is not only in the choice of \textit{what?}
-computation to perform in network, but how the computation should be structured.
-Deferring all locking operations to a switch for instance dominates it's spare
-resources. If the algorithm making use of switch implemented locks could instead
-be implemented using a concurrent algorithm which only makes use of CAS
-operations. This would be a fine candidate for RDMA primitives which could
-alleviate resource pressure on the switch.
+We end by describing how RACE may benefit from in-network logic. RACE's
+search step has two potential destinations due to their power of two load
+balancing. Every read issues two packets. A middlebox can reduce this
+requirement to one packet per read by keeping a single bit per key which denotes
+which hash the key used. When the packet arrives the switch performs the hash,
+and if the packet is sent to the wrong destination it steers it to the correct
+one. As this only requires one bit per key and cuts the packets per second by
+half, it would likely be a beneficial optimization. Further each read requires
+two round trips. This could be reduced to one for hot keys. The middlebox could
+maintain a cache of hot keys (top n), when a search packet is found, if the key
+gets a hit, the read is transformed in location and size to the destination
+address of the true read. For hot keys this requires 48 bits per key given
+RACE's addressing scheme.
 
-This principle leads to a very simple design guideline for memory
-disaggregation. \textbf{Implement all far memory structures with the fewest
-constraints possible}. End-to-end approaches should be able to achieve their
-operations in O(1) in the common case as round trips are the greatest enemy of
-performance.  Clients will benefit from caching data, and performing additional
-computation rather than making additional remote requests. Examples include
-relaxing data structure invariants such as ordering and placement. Further
-networks are fast, and have high bandwidths, if necessary performing larger
-reads to obtain correct data is a better decision than making many round trips
-to perform a write. If data is truly contested i.e locks, and hot keys,
-\textbf{middleboxes such as switches and NICs can provide fast serialization}.
-Less is more when leveraging a network device. Algorithms and data structures
-leveraging middlebox should be specially tuned to reduce middlebox state. Ideal
-data structures would have structural invariants which a middlebox can maintain
-while only keeping a small fraction of the data structures information in
-memory. Lastly the work done by the middlebox should be minimal. Complex
-operations are not ideal for hardware designed to forward packets. Algorithms
-with operations that can be satisfied by swapping out values in packets are
-ideal. As an example changing the location of a read or write, changing the side
-of a read or write, or setting a value in the packets payload. As demonstrated
-in SwordBox~\cite{Grant2021InContRes} contention can be avoided in append only
-link lists by caching the location of the tail of the list.
+% The increased gap between computational resources and memory in the
+% disaggregated model leads to poor performance in some cases. The most blatant is
+% serialization on contended resources. As noted in Sherman, Clover, Conscious
+% Hashing~\cite{sherman,clover,one-sided-hash}, writes must be carefully
+% coordinated to avoid collisions. Fast serialization can be achieved using a
+% centralized source such as programable hardware in the network. This hardware
+% performs serialization at the physical level, and is able to process millions of
+% requests per second. Netlock~\cite{netlock} demonstrates that a switch can
+% provide centralized locking for millions of requests per second. Mind,
+% demonstrates that memory protection and cache coherence can be maintained by a
+% switch~\cite{mind}, and NetChain demonstrated that a set of switches can be used
+% to obtain millions of consensus operations per second. There are countless works
+% on in network acceleration for a variety of tasks~\todo{ipipe,netcache,itterally all the things}.
 
+% Including a middlebox into the architectural design of a disaggregated system is
+% a common pattern~\cite{disandapp}. In this model a centralized network device
+% provides some memory services to the application such as memory protection. The
+% performance benefit from serialization makes network devices tempting as a key
+% component of disaggregated systems especially with the proliferation of
+% programmable networking platforms such as Barefoot Tofino~\cite{tofino3} and
+% Corundum~\cite{corundum} make developing such software more accessible than ever.
 
-Consider how Sherman might be improved by small amounts of application specific
-caching on a middlebox. Firstly, Shermans search step has two potential
-destinations due to their power of two load balancing. This demands the use of
-two packets for each search, an operation required in each operation. A
-middlebox can easily reduce this requirement to one packet per read by keeping a
-single bit per key which denotes which hash the key used. When the packet
-arrives the switch performs the hash, and if the packet is sent to the wrong
-destination it steers it to the correct one. As this only requires one bit per
-key and cuts the packets per second by half, it would likely be a beneficial
-optimization. Further each read requires two round trips. This could be reduced
-to one for hot keys. The middlebox could maintain a cache of hot keys (top n),
-when a search packet is found, if the key gets a hit, the read is transformed in
-location and size to the destination address of the true read. For hot keys this
-requires 48 bits per key given Shermans addressing scheme.
+% However there is a sweet spot in terms of utility with programable network
+% devices, Figure~\ref{fig:middlebox_model} shows a general model for network hardware
+% performance as it does more work per packet. If the work necessary from a
+% middlebox is higher than a specific number of cycles per packet, then the
+% overall performance drops below the beneficial range. It has been show in
+% simulations for PIM architectures that a centralized serialization point for
+% operations like pointer chasing can slow down operations compared to well
+% designed data structures for concurrency~\todo{pim Irina citation}.
 
+% Therefore the choice of network computation is a balancing act for resource
+% disaggregation. The balancing act is not only in the choice of \textit{what?}
+% computation to perform in network, but how the computation should be structured.
+% Deferring all locking operations to a switch for instance dominates it's spare
+% resources. If the algorithm making use of switch implemented locks could instead
+% be implemented using a concurrent algorithm which only makes use of CAS
+% operations. This would be a fine candidate for RDMA primitives which could
+% alleviate resource pressure on the switch.
+
+% This principle leads to a very simple design guideline for memory
+% disaggregation. \textbf{Implement all far memory structures with the fewest
+% constraints possible}. End-to-end approaches should be able to achieve their
+% operations in O(1) in the common case as round trips are the greatest enemy of
+% performance.  Clients will benefit from caching data, and performing additional
+% computation rather than making additional remote requests. Examples include
+% relaxing data structure invariants such as ordering and placement. Further
+% networks are fast, and have high bandwidths, if necessary performing larger
+% reads to obtain correct data is a better decision than making many round trips
+% to perform a write. If data is truly contested i.e locks, and hot keys,
+% \textbf{middleboxes such as switches and NICs can provide fast serialization}.
+% Less is more when leveraging a network device. Algorithms and data structures
+% leveraging middlebox should be specially tuned to reduce middlebox state. Ideal
+% data structures would have structural invariants which a middlebox can maintain
+% while only keeping a small fraction of the data structures information in
+% memory. Lastly the work done by the middlebox should be minimal. Complex
+% operations are not ideal for hardware designed to forward packets. Algorithms
+% with operations that can be satisfied by swapping out values in packets are
+% ideal. As an example changing the location of a read or write, changing the side
+% of a read or write, or setting a value in the packets payload. As demonstrated
+% in SwordBox~\cite{Grant2021InContRes} contention can be avoided in append only
+% link lists by caching the location of the tail of the list.
 
 \section{Conclusion}
+
+We have described the pitfalls around serialization in disaggregated systems. In
+doing so we categorized well established techniques for reducing the cost of
+serialization and avoiding contention. We then described the chronology of
+systems research leading to these techniques and described the systems
+themselves in detail. We conclude with a discussion on the ability of in-network
+data-structures to aid in disaggregated serialization.
 
 % \section{Snoeren Feedback + general todo}
 

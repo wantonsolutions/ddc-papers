@@ -1095,3 +1095,51 @@ keywords = {distributed applications, SmartNIC},
 location = {Beijing, China},
 series = {SIGCOMM '19}
 }
+
+@inproceedings{netcache,
+author = {Jin, Xin and Li, Xiaozhou and Zhang, Haoyu and Soul\'{e}, Robert and Lee, Jeongkeun and Foster, Nate and Kim, Changhoon and Stoica, Ion},
+title = {NetCache: Balancing Key-Value Stores with Fast In-Network Caching},
+year = {2017},
+isbn = {9781450350853},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3132747.3132764},
+doi = {10.1145/3132747.3132764},
+abstract = {We present NetCache, a new key-value store architecture that leverages the power and flexibility of new-generation programmable switches to handle queries on hot items and balance the load across storage nodes. NetCache provides high aggregate throughput and low latency even under highly-skewed and rapidly-changing workloads. The core of NetCache is a packet-processing pipeline that exploits the capabilities of modern programmable switch ASICs to efficiently detect, index, cache and serve hot key-value items in the switch data plane. Additionally, our solution guarantees cache coherence with minimal overhead. We implement a NetCache prototype on Barefoot Tofino switches and commodity servers and demonstrate that a single switch can process 2+ billion queries per second for 64K items with 16-byte keys and 128-byte values, while only consuming a small portion of its hardware resources. To the best of our knowledge, this is the first time that a sophisticated application-level functionality, such as in-network caching, has been shown to run at line rate on programmable switches. Furthermore, we show that NetCache improves the throughput by 3-10x and reduces the latency of up to 40% of queries by 50%, for high-performance, in-memory key-value stores.},
+booktitle = {Proceedings of the 26th Symposium on Operating Systems Principles},
+pages = {121–136},
+numpages = {16},
+keywords = {Caching, Key-value stores, Programmable switches},
+location = {Shanghai, China},
+series = {SOSP '17}
+}
+
+@INPROCEEDINGS{netkv,
+  author={Zhang, Wei and Wood, Timothy and Hwang, Jinho},
+  booktitle={2016 IEEE International Conference on Autonomic Computing (ICAC)}, 
+  title={NetKV: Scalable, Self-Managing, Load Balancing as a Network Function}, 
+  year={2016},
+  volume={},
+  number={},
+  pages={5-14},
+  doi={10.1109/ICAC.2016.28}}
+
+@inproceedings{kv-direct,
+author = {Li, Bojie and Ruan, Zhenyuan and Xiao, Wencong and Lu, Yuanwei and Xiong, Yongqiang and Putnam, Andrew and Chen, Enhong and Zhang, Lintao},
+title = {KV-Direct: High-Performance In-Memory Key-Value Store with Programmable NIC},
+year = {2017},
+isbn = {9781450350853},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3132747.3132756},
+doi = {10.1145/3132747.3132756},
+abstract = {Performance of in-memory key-value store (KVS) continues to be of great importance as modern KVS goes beyond the traditional object-caching workload and becomes a key infrastructure to support distributed main-memory computation in data centers. Recent years have witnessed a rapid increase of network bandwidth in data centers, shifting the bottleneck of most KVS from the network to the CPU. RDMA-capable NIC partly alleviates the problem, but the primitives provided by RDMA abstraction are rather limited. Meanwhile, programmable NICs become available in data centers, enabling in-network processing. In this paper, we present KV-Direct, a high performance KVS that leverages programmable NIC to extend RDMA primitives and enable remote direct key-value access to the main host memory.We develop several novel techniques to maximize the throughput and hide the latency of the PCIe connection between the NIC and the host memory, which becomes the new bottleneck. Combined, these mechanisms allow a single NIC KV-Direct to achieve up to 180 M key-value operations per second, equivalent to the throughput of tens of CPU cores. Compared with CPU based KVS implementation, KV-Direct improves power efficiency by 3x, while keeping tail latency below 10 μs. Moreover, KV-Direct can achieve near linear scalability with multiple NICs. With 10 programmable NIC cards in a commodity server, we achieve 1.22 billion KV operations per second, which is almost an order-of-magnitude improvement over existing systems, setting a new milestone for a general-purpose in-memory key-value store.},
+booktitle = {Proceedings of the 26th Symposium on Operating Systems Principles},
+pages = {137–152},
+numpages = {16},
+keywords = {Key-Value Store, Programmable Hardware, Performance},
+location = {Shanghai, China},
+series = {SOSP '17}
+}
+
+  
