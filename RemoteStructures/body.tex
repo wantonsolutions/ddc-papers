@@ -167,7 +167,7 @@ Disaggregation assumes that memory operations, i.e. reads and writes are issued
 over the network rather than across a traditional memory bus. RDMA is a popular
 networking technology which allows clients to read and write directly to a
 servers memory without CPU involvement. RDMA is also known for having high
-throughput and low latency. Due to it's direct applicability most memory
+throughput and low latency. Due to its direct applicability most memory
 disaggregation proposals assume RDMA capable networks as an essential
 architectural building block. However, alternative interconnect proposals exist.
 
@@ -214,7 +214,7 @@ improvements in networking hardware which allow for ultra low latency access to
 remote memory. This trend is expected to continue, and the overhead of remote
 memory will continue to shrink as a function of network hardware performance.
 Even when network hardware technology has peaked, and remote memory is at
-it's lowest cost, it will still be much more expensive than a local memory
+its lowest cost, it will still be much more expensive than a local memory
 access due to physical limitations such as the speed of light. In the
 expectation of eventual reasonable, but not low cost disaggregated memory access
 we focus on the fundamental challenges that will still need to be solved for
@@ -292,7 +292,7 @@ data structures of the system.
     required per packet to resolve contention. On the X axis the cost of
     resolving contention in two system A and B are marked. On the right, the
     benefit of applying contention resolution to these systems. System only has
-    a benefit as the cost to resolve it's conflicts are below the hardware cost.
+    a benefit as the cost to resolve its conflicts are below the hardware cost.
     System B loses performance with the centralized solution while contention is
     low.}
 
@@ -387,7 +387,7 @@ semantics such as ordering are difficult to maintain under contention as
 potentially many elements must be read, and reorganized to achieve an operation
 such as an insert.
 
-For example Sherman~\cite{sherman} uses relaxed ordering in it's B-tree buckets
+For example Sherman~\cite{sherman} uses relaxed ordering in its B-tree buckets
 so that writes can succeed more frequently in $O(1)$. This also has the effect
 of reducing write amplification as only a single entry is written, and not an
 entire ordered bucket. Similarly One-Sided-Hash~\cite{one-sided-hash} uses
@@ -451,14 +451,14 @@ building blocks for most opportunistic data structures.
 \subsection{Metadata Caching}
 %%
 Disaggregated data structures often store large amounts of data, and have
-comparatively small amount of metadata to describe it's structure. Examples of
+comparatively small amount of metadata to describe its structure. Examples of
 metadata include a hash index, page table, linked list pointers, and internal
 nodes of a b-tree. By caching just the metadata operations on remote memory can
 be greatly accelerated, as the round trip to read the metadata can be skipped.
 DMA 
 Most disaggregated proposals support some form of metadata caching either
 explicitly or implicitly. For instance Clover~\cite{clover} explicits caches the
-metadata of it's remote database to perform opportunistic writes, and Black Box
+metadata of its remote database to perform opportunistic writes, and Black Box
 Numa~\cite{black-box-numa} maintains a replicated log of every operation. 
 
 \subsection{Compute Side Coalescing}
@@ -529,7 +529,7 @@ numbers of each read do not match, the read is aborted.
 
 % One aspect of caching protocols is that they explode the traffic requirements.
 % On memory busses only intended for memory traffic, this may be acceptable, but
-% on an RDMA network it's going to be most of the traffic. For example the
+% on an RDMA network its going to be most of the traffic. For example the
 % proposals in Thinking outside of the Box~\cite{design-far-memory-struct} calls
 % for cache coherence protocols, while Mind~\cite{mind} actually implements one.
 % Swordbox actually removes the need for the cache coherence by fixing the missing
@@ -543,8 +543,8 @@ numbers of each read do not match, the read is aborted.
 % integrity. An update to any entry requires the recomputation of the checksum,
 % and the rewrite of the continuous addresses in order to make the write in a
 % single round trip. Depending on the bucket size of the entries the write can
-% grow arbitrarily. Another technique is to make each entry have it's own checksum
-% for it's integrity, and to only update the bucket checksum when all items become
+% grow arbitrarily. Another technique is to make each entry have its own checksum
+% for its integrity, and to only update the bucket checksum when all items become
 % static.
 
 % \subsection{Network Caching} 
@@ -733,7 +733,7 @@ the hash doubles in side and all items are rehashed.
 
 This algorithm is designed to be cache efficient, as lookups would likely be on
 the same cache line. It has the additional advantage that when a value is
-written, it's location is deterministic within a bound. In remote memory this
+written, its location is deterministic within a bound. In remote memory this
 allows for $O(1)$ lookups as the size of the read can be expanded to included
 the max distance an entry is from its starting location. This structure is
 unfortunate in that writes can take many round trips and complex locking due to
@@ -754,9 +754,9 @@ shared log is replicated on each node. Local copies of the shared structure are
 used for queries and to prepare for future operations. Processes on a node are
 grouped together, and for performance operations are coalesced and only issued
 by a node leader determined by the flat combining algorithm~\cite{flat-combine}.
-The shared log is built by appending to it's tail using CAS operations from the
+The shared log is built by appending to its tail using CAS operations from the
 leader of each node. If the leader is behind is scans the list, and attempts to
-append only once it's found the tail.
+append only once its found the tail.
 
 Node Replication takes into account many design considerations which are present
 in the disaggregated context. First it assumes a shared, and contested region of
@@ -834,7 +834,7 @@ write from the server.
 
 Herds biggest contribution is that it closely analyses RDMA performance and
 choses the verb architecture closely. Herd does not apply greatly to
-disaggregated contexts as is fully assumes server side CPUs. However, it's one
+disaggregated contexts as is fully assumes server side CPUs. However, its one
 sided benchmarks are valid and valuable for disaggregated designers. The
 insights from this work have been influential in the construction of many fast
 RPC systems~\cite{erpc,faast,storm,1rma}. Unfortunately for disaggregation this
@@ -875,7 +875,7 @@ consistent state are used by Cell.
 
 %\textbf{fasst~\cite{faast}[\textcolor{red}{x}]} Fasst is Anujs first cut at RPC.
 %Similar to ERPC below, FASST argues heavily for the use of two sided verbs to
-%reduce the cost of reading. While this makes sense it's not super applicable.
+%reduce the cost of reading. While this makes sense its not super applicable.
 %Many of the observations are around batching, RDMA reliability, and scheduling.
 
 %\textbf{erpc~\cite{erpc}[\textcolor{red}{x}]} Erpc focues on common case RPC
@@ -907,7 +907,7 @@ consistent state are used by Cell.
 % Reading through the 1RMA paper~\cite{1rma}, they make the case for basically
 % using the NIC to execute remote operations and nothing else. In some respects I
 % def get this aspect of the RDMA construction. Push all of the connection
-% management to the client side, and just let the RDMA do it's thing with the
+% management to the client side, and just let the RDMA do its thing with the
 % extremely high assumption that the packets are going to make it back with a
 % response. By managing everything on the client side we can get things like
 % control flow windows, ordering ect without pushing any of this to the hardware
@@ -934,7 +934,7 @@ below are those which partition their remote memory.
 \textbf{Clover~\cite{clover}}
 %%
 is an RDMA key-value store designed for persistent, disaggregated memory. All
-of it's remote memory operations are performed via one-side RDMA, with the
+of its remote memory operations are performed via one-side RDMA, with the
 exception of two sided metadata operations sent to non-disaggregated metadata
 servers. This architecture is reached by an empirical evaluation of 4
 alternative systems, one which uses a centralized coordinator, and another with
@@ -955,14 +955,14 @@ this is not necessarily a relaxed layout, the use of a partitioned address space
 for writes is a clever way to reduce write conflicts.
 
 There are a few optimizations Clover did not include which have the potential to
-improve it's performance. Here we comment on the potential optimizations. Clover
-does not make use of self verifying data structures, with the exception of it's
+improve its performance. Here we comment on the potential optimizations. Clover
+does not make use of self verifying data structures, with the exception of its
 pDPM direct variant. Clover writes take two round trips in the common case, the
 first to write, the second to CAS. This ensure the write completes prior to
 committing with a CAS.  If Clover were clover to have a self verifying write,
 the CAS could be issued concurrently with the write. Here if the CAS failed, it
 could be reissued quickly. If the CAS succeeded and made the write visible prior
-to it's completion, the checksum would guard other clients from reading
+to its completion, the checksum would guard other clients from reading
 incomplete write data. 
 
 Clover makes no assumptions about client co-residency. In practice clover could
@@ -974,7 +974,7 @@ to Sherman~\cite{sherman}, by taking this optimizations into account.
 
 Finally for the sake of discussion we describe an alternative, but not
 functionally equivalent data layout for Clovers linked list. Clovers data layout
-is pointer based and sparse so it cannot simply inflate it's reads in order to
+is pointer based and sparse so it cannot simply inflate its reads in order to
 gain more information in a single round trip. Figure~\ref{fig:clover_alt}
 illustrates Clovers memory layout on the left, in which process isolated memory
 references each other via pointers. On the right an alternative design shows a
@@ -1026,14 +1026,14 @@ keys, is half's the theoretical reads per second due to the packet processing
 ability of the receiving side NIC. 
 
 RACE uses concurrent lockless reads and inserts to improve average case
-performance. The main downside to RACE's overall hash table is it's inability to
+performance. The main downside to RACE's overall hash table is its inability to
 reduce the number of round trips for each operation. Each read requires an
 access to the index structure followed by a data read. These two round trips
 require three packets.  Insertions require four round trips, writes three, and
 deletions three. While batching is used to reduce the cost of round trips when
 possible the overall cost remains high especially as the number of RTT leads to
 high tail latencies. Each additional round trip is in some part due to data
-being separate from it's meta data. Unlike Clover the data does not implicitly
+being separate from its meta data. Unlike Clover the data does not implicitly
 imply that it is valid (as Clover does by having a null pointer at the tail of
 each linked list.) Were RACE to adopt an implicit data invalidation scheme like
 Clover it could potentially optimize for one less round trip per read and write.
@@ -1046,7 +1046,7 @@ version number of the slot. With client side search could be avoided and
 deletion could be done in a single round trip in the common case where reads are
 heavy.
 
-\sg{while reading I think I found a linearizability bug in RACE, I think it's
+\sg{while reading I think I found a linearizability bug in RACE, I think its
 possible to read invalid data via \textbf{race} condition}
 
 
@@ -1072,7 +1072,7 @@ each entry are checked after a range has been read to determine the degree of
 consistency the read achieved. Transactional reads are possible but require that
 a global lock is obtained.
 
-Sherman reduces the ordering requirement on the leaf nodes of it's tree.
+Sherman reduces the ordering requirement on the leaf nodes of its tree.
 Traditional B-Trees have a full ordering requirement for leaves, while sherman
 has full associativity. Ordering is only required between leaves. This reduces
 write failures as writes can simply append to an open location, it also reduces
@@ -1100,17 +1100,17 @@ memory. MIND acts as an MMU providing isolation and protection to processes
 running on end hosts. It makes use of the MSI cache coherence protocol (Modified,
 Shared, Invalid) which essentially acts as read/write locks on the memory.
 Shared means that many processes can read shared memory, modified means that
-it's dirty and owned by a single process, invalid means it's not present.  Mind
+its dirty and owned by a single process, invalid means its not present.  Mind
 provides both memory protection and cache coherence. 
 
 As MIND is in-network its constraints differ from all prior systems as request
 serialization is cheap, but memory is extremely expensive (switch SRAM). In this
-way it's only cousin in this work is Sherman, as they both require careful use
+way its only cousin in this work is Sherman, as they both require careful use
 of in network locks. MIND uses a sophisticated page table splitting algorithm,
 similar to dynamic huge pages which uses minimal memory while providing
 protection to a large space of virtual addresses. MIND does share some
 characteristics with prior work, in that due to constraints it relaxes the
-definitions of it's structures, such as the virtual memory space of remote
+definitions of its structures, such as the virtual memory space of remote
 memory itself, which it combines into a single contiguous address space. This
 allows MIND to only keep a translation entry for each memory server it manages.
 
@@ -1148,7 +1148,7 @@ from using an in network solution.
 
 If we consider the model in Figure~\ref{fig:middlebox_model}, an ideal system is
 one which performs at line rate when no contention exists, and which can have
-it's contention resolved in-network using few cycles. Alternatively a system
+its contention resolved in-network using few cycles. Alternatively a system
 could choose to only have some of its contention resolved in network to reduce
 the cycles required. These two axioms suggest that data structures which use
 in-network serialization should have efficient end-to-end approaches which will
@@ -1205,7 +1205,7 @@ RACE's addressing scheme.
 % Therefore the choice of network computation is a balancing act for resource
 % disaggregation. The balancing act is not only in the choice of \textit{what?}
 % computation to perform in network, but how the computation should be structured.
-% Deferring all locking operations to a switch for instance dominates it's spare
+% Deferring all locking operations to a switch for instance dominates its spare
 % resources. If the algorithm making use of switch implemented locks could instead
 % be implemented using a concurrent algorithm which only makes use of CAS
 % operations. This would be a fine candidate for RDMA primitives which could
@@ -1261,13 +1261,13 @@ data-structures to aid in disaggregated serialization.
 %     \item Naked this - This is reason why we must do $X$. v.s High Tail Latency
 %     is the reason we must do x.
 
-%     \item it's vs its. I know the difference, I think I just make this mistake
+%     \item its vs its. I know the difference, I think I just make this mistake
 %     while I'm writing.
 
 %     \item Alex notes, strikes mean remove, circles mean wtf, added punctuation
 %     means add punctuation.
 
-%     \item add serialization early in the document so that it's listed as a key problem
+%     \item add serialization early in the document so that its listed as a key problem
 %     \item merge the first three sections intro + what this paper is + what it is not into a single section. 
     
 
@@ -1291,7 +1291,7 @@ data-structures to aid in disaggregated serialization.
 % \section{notes}
 
 % The papers~\cite{one-sided-hash} and ~\cite{write-op-hash} are almost
-% identical. It's the same author, I'm just noting that the change between NUMA
+% identical. its the same author, I'm just noting that the change between NUMA
 % and Far memory could use this as a case study.
 
 % Similar to the concept of a bandwidth delay product, in terms of remote memory
