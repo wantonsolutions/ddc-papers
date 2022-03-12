@@ -1,65 +1,60 @@
 \section{Introduction}
-%% High level disaggregation overview, no remote CPU
+
 Disaggregation is an architectural paradigm which separates a computer's
 resources from its CPU by a network. While the network provides flexibility it
 comes at the cost of additional access latency
 -- nowhere is the cost more expensive than between CPU and main memory.
-Increased latency only becomes more problematic when disaggregated memory is
-shared, and contended for. In a non-disaggregated setting, the memory of a
-remote machine is co-located with a CPU which serializes memory accesses, for
-example though RPC calls. Such serialization is impossible in the disaggregated
-setting as by definition no such remote CPU exists. The cost of locking and
-serialization skyrockets without a CPU close to the contended memory.
+Increased latency becomes more problematic when disaggregated memory is shared,
+and contended for. In a traditional non-disaggregated setting, all remote
+machines have a CPU and co-memory. In this setting the CPU can serialize access
+to memory, for example through an RPC interface.  Such serialization is
+impossible in the disaggregated setting as by definition no such remote CPU
+exists. The cost of locking and serialization skyrockets without a CPU close to
+memory.
 
-%% contention
 Fighting high cost coordination is not a new battle. Entire classes of lockless
 data structures were invented to prevent contention unless true data races
 exist, allowing for uncontested access to shared structures.
 ~\cite{simple-fast,lock-free-skip,non-block-binary,read-concur-btree,lock-free-btree}.
-Similarly the advent of NUMA servers lead to the production of locality aware
-algorithms and data structures which scale to thousands of cores.
-~\cite{linux-scale,black-box-numa}\todo{many cites for numa}. The common thread
-that ties these two contexts to the concept of disaggregation is that memory
-accesses are one-sided (executed directly on memory with no additional
-computation), and the latency cost course grained serialization is high.
+Similarly the advent of Non-Uniform Memory Access (NUMA) servers lead to the
+production of locality aware algorithms and data structures which scale to
+thousands of cores.  ~\cite{linux-scale,black-box-numa}. The common thread that
+ties these two contexts to the concept of disaggregation is that memory accesses
+are one-sided (executed directly on memory with no additional computation), and
+that the latency cost of course grained serialization is high.
 
-%dissagregation as an archetecture different from prior work
 Disaggregation extends the notion of NUMA to beyond a single machine and into a
 new territory of system architecture. The most striking addition to the design
 space is the inclusion of high-speed programmable networks. The choice of
-networking hardware, in terms of switches, (network interface cards) NICs, and
+networking hardware, in terms of switches, network interface cards (NICs), and
 transports like PCIe have a direct impact on the design of the operating system,
 algorithms, and data structures built to run on
 them~\cite{dredbox,firebox,machine,legoos,supernic}.  For example Mind used a
 programmable switch for address protection, and as a TLB for disaggregated
 memory~\cite{mind}.  Programming network devices is difficult work as they are
 resource constrained both in terms of general compute and memory, and often lack
-high quality developer tools. These development barriers mean that few
-algorithms and data structures have been designed with programable network
-hardware in mind. Despite the technologies reported benefits, we as a community
-lack principles to determine how to integrate programable networks into
-disaggregated architectures.
-
-%% lots of work to do, kind of a dead paragraph
-%Disaggregation is still in its infancy, and the community of system designers
-%currently lacks the tools and concepts which will make it a practical reality.
+mature developer tools. These development barriers mean that few algorithms and
+data structures have been designed with programable network hardware in mind.
+Despite the reported benefits of disaggregation, we as a community lack
+principles to determine how to integrate programable networks into disaggregated
+architectures.
 
 A litany of prototypes have been built which demonstrate the feasibility of
 disaggregation~\cite{infiniswap,fastswap,leap,legoos,aifm,kona,reigons,software-far,lite,semeru}.
 However, little conformity has been reached in terms of system design and
-expectation. One of the few salient points, is that the cost of coordination is
+expectation. One of the few salient points is that the cost of coordination is
 high, and is therefore often avoided. The few prototypes which do coordinate
 accesses to far memory have sophisticated and complex techniques for achieving
 serialization~\cite{clover,one-sided-hash,sherman,ford}. Our insight is that
 nearly all of the serialization and synchronization issues associated with
 memory disaggregation are not new. We have found that many practical approaches
 can be mined from prior literature aimed at scaling to many cores, or directly
-access the memory of a remote machine. The off the shelf practicality ends where
+access the memory of a remote machine. The off-the-shelf practicality ends where
 programmable networking begins, as little prior work (with the exception of PIMM
 memory~\cite{near-memory-structs}), includes programmability on the data path.
 
 %% What this paper is not
-This paper is focused on data structures for disaggregation, it is not a systems
+This paper is focused on data structures for disaggregation it is not a systems
 summary.  Many projects exist which are designed for the disaggregated model,
 few of which will be covered in detail. An overview of the state of the art
 systems circa 2021 can be found in Yelam~\cite{yelam2022systems}.
@@ -73,40 +68,37 @@ across processes so their only performance effect from far memory is the size of
 their cache, paging policy, and round trip cost. As such each system is
 primarily constrained by the access pattern of their programs. We consider
 locality optimization to be a single facet of the design space for
-disaggregation and address it more fundamentally in
-Section~\ref{sec:solutions}. We reference systems only in terms of their data
-structure design.
+disaggregation and address it more fundamentally in Section~\ref{sec:solutions}.
+We reference systems only in terms of their data structure design.
 %%
-Moreover, this paper is not theory. All data structures investigated within have been
-implemented using real hardware. While some papers referenced may be theoretical
-in contribution~\cite{flat-combine,hopscotch,linked-list-cas}, they must be
-backed by a concrete implementation. As such our scope is limited to data
-structures which can be implemented using instructions available on commodity
-hardware.
+Moreover, this paper does not cover purely theoretical works. All data
+structures investigated within have been implemented using real hardware. While
+some papers referenced may be theoretical in
+contribution~\cite{flat-combine,hopscotch,linked-list-cas}, they must be backed
+by a concrete implementation. As such our scope is limited to data structures
+which can be implemented using instructions available on commodity hardware.
 
 % Paper Goals
-
 The future of resource disaggregation is unclear. Thus far the 20x increase in
 latency between local and remote memory has made practical memory disaggregation
-a non-starter. Our goal is to take a small step forward by
-identifying new and existing design principles for disaggregated memory.
+a non-starter. Our goal is to take a small step forward by identifying new and
+existing design principles for disaggregated memory.
 %%
 In this paper we survey prior algorithmic and data structure trends driven by
-shared memory scalability and ask the question \textit{Which existing techniques
-apply to memory disaggregation, and what new techniques are enabling the
-technology?} 
+shared memory scalability and ask the question \textit{What techniques improve
+system performance when data is contested in disaggregated memory?}
 
-This survey covers concurrent data structures, NUMA data
-structures, and RDMA key-value stores which use one-sided read/write verbs.
-We then analyse the first few works on disaggregation specific data structures
-and identify the techniques used to achieve high performance in the face of
-contention. When a project does not make use of an identified technique we
-comment on how it may have improved (or reduced) the systems performance. The
-final part of our analysis focuses directly on the serialization mechanisms used
-in each data structure with respect to how programable networking devices may
-accelerate it. In particular we focus on cases where maintaining a small amount
-data structure specific state in network can greatly improve operation
-throughput and latency.
+
+This survey covers concurrent data structures, NUMA data structures, and RDMA
+key-value stores which use one-sided read/write verbs.  We then analyze the
+first few works on disaggregated data structures and identify the techniques
+used to achieve high performance in the face of contention. When a project does
+not make use of an identified technique we comment on how it may have improved
+(or reduced) the systems performance. In the final part of our analysis we focus on
+the role programmable networking can play in improving performance in
+disaggregated systems.  In particular we focus on cases where maintaining a
+small amount data structure specific state in network can greatly improve
+operation throughput and latency.
 
 % Although problems such as the memory wall have been
 % cited for over a decade~\cite{blade-server}, and SSD \& HDD disaggregation is
@@ -135,17 +127,16 @@ throughput and latency.
 
 Networks play a large role in determining how disaggregated computers will
 manifest.  The disaggregated model we consider most prevalent is that of the
-rack-scale computer. In the rack scale design servers in a rack have a resource
-role - compute, memory, storage, accelerator. Each server is connected via a
-fast network i.e. 100-400Gbps ethernet or above. The topology of the rack is up
-for debate, however many suggest that each server is interconnected with a
-traditional TOR, or with a special purpose middlebox for memory
+rack-scale computer. In the rack-scale design servers have a resource role:
+compute, memory, storage, accelerator. Each server is connected via a fast
+network (100Gbps Ethernet or above). The topology of the rack is up for debate,
+however many suggest that each server is interconnected with a traditional
+top-of-rack switch (TOR), or with a special-purpose middlebox for memory
 traffic~\cite{disandapp}. Proposals for other topologies such as torus exist,
-however we scope ourselves to the prior configuration. In the rack scale model
+however we scope ourselves to the prior configuration. In the rack-scale model
 we consider all memory traffic in a rack transits a centralized switch, and all
 the traffic for an individual machine flows through that machines NIC.
-Figure~\ref{fig:rackscale} provides a high level overview of this system
-architecture.
+Figure~\ref{fig:rackscale} provides an overview of this system architecture.
 
 \begin{figure}[t]
     \begin{centering}
@@ -166,7 +157,7 @@ over the network rather than across a traditional memory bus. RDMA is a popular
 networking technology which allows clients to read and write directly to a
 servers memory without CPU involvement. RDMA is also known for having high
 throughput and low latency. Due to its direct applicability most memory
-disaggregation proposals assume RDMA capable networks as an essential
+disaggregation proposals assume RDMA-capable networks as an essential
 architectural building block. However, alternative interconnect proposals exist.
 
 GMS~\cite{gms} suggests that global memory be maintained alongside an entire
@@ -264,16 +255,16 @@ retires if write or read data is contested.
 An attentive reader may now ask \textit{If the cost of round trips is so
 extreme, why not serialize access to remote memory through centralization?} The
 simple answer is that any centralized solution is itself an explicit bottleneck.
-The aforementioned Clover shows experimentally that a centralized solution can
-only achieve half of the read throughput that their decentralized solution
-can~\cite{clover}. Similar prior work on near memory computing showed that using
-traditional serialization methods, such as locks, also quickly bottleneck in
-comparison to well crafted opportunistic algorithms~\cite{near-memory-structs}.
-If this were not the case, a reasonably simple solution for serializing access
-to disaggregated memory would be to port existing RPC based approaches like
-Herd~\cite{herd} to a SmartNIC on each memory server. As shown in FairNIC and
-Ipipe the number of additional cycles that SmartNIC has to process packets is
-slim, and any additional work causes a drop in performance~\cite{fairnic}[Figure
+Clover shows experimentally that a centralized solution can only achieve half of
+the read throughput that their decentralized solution can~\cite{clover}. Similar
+prior work on near memory computing showed that using traditional serialization
+methods, such as locks, also quickly bottleneck in comparison to well crafted
+opportunistic algorithms~\cite{near-memory-structs}.  If this were not the case,
+a reasonably simple solution for serializing access to disaggregated memory
+would be to port existing RPC based approaches like Herd~\cite{herd} to a
+SmartNIC on each memory server. As shown in FairNIC and Ipipe the number of
+additional cycles that SmartNIC has to process packets is slim, and any
+additional work causes a drop in performance~\cite{fairnic}[Figure
 2]~\cite{ipipe}[Figure 4]. Because centralized solutions have an inherent
 bottleneck utilizing them is a balancing act. Figure~\ref{fig:middlebox_model}
 provides an abstract visualization of the tradeoff between centralized
@@ -335,16 +326,19 @@ extreme tail latencies which is not ideal for memory operations.
 
 
 Reducing round trips requires algorithmic and data structure improvements. A
-common tactic to reduce round trips is to reduce the precision required by an
-operation. Reduced precision can enable operations to succeed even when they are
-executed with stale information. There is always a tradeoff when precision is
-reduced, it can incur additional bandwidth, or increase a data structures memory
-footprint. Less generalizable strategies take advantage of environment specific
-conditions to improve performance, such as resolving conflicts locally when CPUs
-are colocated. In this section we overview common techniques used to reduce
-round trip times. These techniques are not unique to disaggregated literature.
-Work on current data structures, NUMA systems, and RDMA KVS have paved the way
-to memory disaggregation. We reference systems which utilize these techniques in
+common tactic to reduce round trips is to loosen the constraints on data
+placement. An associative cache is an example of a loosely constrained data
+placement strategy.  the precision required by an operation.
+
+Loose constraints can enable operations to succeed even when they are executed
+with stale information. There is always a tradeoff when precision is reduced, it
+can incur additional bandwidth, or increase a data structures memory footprint.
+Less generalizable strategies take advantage of environment specific conditions
+to improve performance, such as resolving conflicts locally when CPUs are
+colocated. In this section we overview common techniques used to reduce round
+trip times. These techniques are not unique to disaggregated literature.  Work
+on current data structures, NUMA systems, and RDMA KVS have paved the way to
+memory disaggregation. We reference systems which utilize these techniques in
 this section, prior to covering each system in detail in
 section~\ref{sec:systems}.
 
@@ -365,10 +359,8 @@ removes the need for coordination.
 
 Algorithms like hopscotch hashing~\cite{hopscotch} (used in Farm~\cite{farm})
 and Robinhood hashing~\cite{robinhood} are designed to have good cache locality.
-Hashed data is stored using open addressing, a layout scheme which allows for
-flexible data placement in the hash index.  Both of these hashes specify that
-data must be placed within a bounded range of the index the data hashes to. The
-range of valid locations is known apriori so a requests are guaranteed to
+Hashed data is stored within a bounded range of the index the data hashes to.
+The range of valid locations is known apriori so a requests are guaranteed to
 succeed if they hash the data and perform a read large enough to capture the
 entire valid range of the datas indexes.
 
@@ -413,15 +405,13 @@ addresses, calls to malloc generate candidate virtual addresses until one with
 no collisions in the hash is found. Removing collisions allows for all page
 table lookups to occur with a single round trip.
 
-Trading off algorithmic complexity with computation complexity is largely
-unexplored territory, fortunately some design pitfalls can be determined with
-speculation. Any degree of global churn in a data structure, such as resizing a
-hash table will have amplified cost if large amount of precomputation work has
-been done to produce the current hash. Here any strategy which preserve the work
-will be beneficial in overall system performance. Precomputation should also be
-pushed to uncommon tasks, or tasks which are not latency sensitive.
-Precomputation in the data path may result in performance losses greater than
-the avoided round trips.
+Any degree of global churn in a data structure, such as resizing a hash table
+will have amplified cost if large amount of precomputation work has been done to
+produce the current hash. Here any strategy which preserve the work will be
+beneficial in overall system performance. Precomputation should also be pushed
+to uncommon tasks, or tasks which are not latency sensitive.  Precomputation in
+the data path may result in performance losses greater than the avoided round
+trips.
 
 \subsection{Optimistic Concurrency} 
 
@@ -467,7 +457,7 @@ can resolve contention at a far lower cost than accessing remote memory.
 One design pattern is to designate a single core to make requests reduces the
 number of conflicts at remote memory~\cite{flat-combine}~\cite{sherman}. 
 
-Many disaggregated proposals are scoped at rack scale~\cite{disandapp}. Within a
+Many disaggregated proposals are scoped at rack-scale~\cite{disandapp}. Within a
 rack the case for compute side coalescing is clear, as most tasks will likely
 have some degree of colocated compute. Coalescing remote requests requires
 careful design considerations. If all requests from a rack were routed through a
@@ -596,12 +586,12 @@ numbers of each read do not match, the read is aborted.
          % & % erpc~\cite{erpc}                                        & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc \\ \hdashline
          %& storm~\cite{storm}                                      &  &  &  &  &  &  &  \\ \cdashline{2-9}
          % & 1RMA~\cite{1rma}                                        &  &  &  &  &  &  &  \\ \hline \hline
-\multirow{4}{*}{\rotatebox[origin=c]{90}{\shortstack{\small Disaggregated \\ \small Datastructures }}}        & Clover~\cite{clover}                                    & \nullcirc &  \halfcirc &  \nullcirc & \fullcirc & \fullcirc  & \nullcirc & \nullcirc \\ \cdashline{2-9}
-%\multirow{5}{*}{\rotatebox[origin=c]{90}{\shortstack{\small Disaggregated \\ \small Datastructures }}}        & Clover~\cite{clover}                                    & \nullcirc &  \halfcirc &  \nullcirc & \fullcirc & \fullcirc  & \nullcirc & \nullcirc \\ \cdashline{2-9}
+%\multirow{4}{*}{\rotatebox[origin=c]{90}{\shortstack{\small Disaggregated \\ \small Datastructures }}}        & Clover~\cite{clover}                                    & \nullcirc &  \halfcirc &  \nullcirc & \fullcirc & \fullcirc  & \nullcirc & \nullcirc \\ \cdashline{2-9}
+\multirow{5}{*}{\rotatebox[origin=c]{90}{\shortstack{\small Disaggregated \\ \small Datastructures }}}        & Clover~\cite{clover}                                    & \nullcirc &  \halfcirc &  \nullcirc & \fullcirc & \fullcirc  & \nullcirc & \nullcirc \\ \cdashline{2-9}
 %\multirow{5}{*}{\rotatebox[origin=c]{90}{\shortstack{Far-Memory \\ Structures}}}        & Clover~\cite{clover}                                    & \nullcirc &  \halfcirc &  \nullcirc & \fullcirc & \fullcirc  & \nullcirc & \nullcirc \\ \cdashline{2-9}
          & \shortstack{RACE}~\cite{write-op-hash}            & \fullcirc  & \fullcirc & \halfcirc & \fullcirc & \fullcirc & \nullcirc & \fullcirc \\ \cdashline{2-9}
          & Sherman~\cite{sherman}                            & \fullcirc & \fullcirc & \halfcirc & \fullcirc & \fullcirc & \fullcirc & \fullcirc \\ \cdashline{2-9}
-%         & Ford~\todo{}                                          &  &  &  &  &  & \\ \cdashline{2-9}
+         & Ford~\todo{}                                          &  &  &  &  &  & \\ \cdashline{2-9}
          & Mind~\cite{mind}                                              & \nullcirc & \halfcirc & \halfcirc & \nullcirc & \fullcirc & \nullcirc & \nullcirc \\ \hline
     \end{tabular}
 
@@ -620,7 +610,7 @@ detail focusing on their use of techniques we have identified as valuable. When
 techniques are not used, or are partially used we comment on how their inclusion
 or modification may have effected system performance.
 
-Table~\ref{tab:1} is a cross section of the system we analyse and the techniques
+Table~\ref{tab:1} is a cross section of the systems we analyze and the techniques
 we identified. We include a brief overview of lock-free data structures in this
 section as nearly all the systems we analyse make use of opportunistic
 concurrency. The structures are not included in our system analysis as they are
@@ -628,15 +618,13 @@ only a critical building block in overall system design. We follow up lock free
 data structures with NUMA systems, RDMA key-value stores, and end with systems
 designed for disaggregation.
 
-\subsection{Lock Free Data Structures}
+\subsection{Lock-Free Data Structures}
 
-The downsides of centralized locking has been known for decades and a huge
-amount of work has been done in developing lock free data structures. Lock free
-structures exist in a concurrency hierarchy. Wait free structures are a subset
-of lock free structures, which are a subset of non-blocking structures. We focus
-on lock freedom and use this term generously for simplicity as the fine grained
-differences between these hierarchies are not the focus of this work.  The
-premise behind lock free structures is that in the absence of a data race
+Lock-free data structures exist in a concurrency hierarchy. Wait free structures are
+a subset of lock free structures, which are a subset of non-blocking structures.
+We focus on lock freedom and use this term generously for simplicity as the fine
+grained differences between these hierarchies are not the focus of this work.
+The premise behind lock free structures is that in the absence of a data race
 concurrent reads and writes can succeed without the need to explicitly
 communicate. Failures to read or write also do not cause a threads to effect one
 another.
