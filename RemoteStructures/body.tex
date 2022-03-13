@@ -214,12 +214,16 @@ same issues around sharing and contention that any multiprocessor system does,
 however the effects are more severe due to increased latency of remote memory.
 Naively ported mutual exclusion algorithms like spinlocks incur huge overheads
 as each failed attempt to acquire the lock results in an additional round trip.
-The holy grail of remote memory operations is an $O(1)$ algorithm for reading
-and writing. Each solution in section~\ref{sec:solutions} is an approach to
-reduce the number of round trips and thereby get closer to an $O(1)$ common case
-read and write.  We focus on techniques to alleviate sharing and contention
-latency. These techniques often come with tradeoffs, such as additional
-bandwidth, or memory which complicate the evaluation of effective techniques.
+The holy grail of remote memory operations is an algorithm for reading and
+writing in which each read and write takes a single round trip. In order for a
+single round trip to be sufficient, the data structure must have an $O(1)$
+access such as a hash table, and be able to accept a read or write without
+failure even when data is contested. Each solution in
+section~\ref{sec:solutions} is an approach to reduce the number of round trips
+and thereby get closer to a single round trip common case read and write.  We
+focus on techniques to alleviate sharing and contention latency. These
+techniques often come with tradeoffs, such as additional bandwidth, or memory
+which complicate the evaluation of effective techniques.
 
 \textbf{Mutual Exclusion and Round Trips:} 
 %%
@@ -371,23 +375,23 @@ new candidate data structures for disaggregation.
 
 \subsection{Relaxed Layout} 
 
-Somewhat ironically while tight locality invariants enable $O(1)$ reads, loose
-locality invariants reduce the price of writes. Data structures with strict
-semantics such as ordering are difficult to maintain under contention as
-potentially many elements must be read, and reorganized to achieve an operation
-such as an insert.
+Somewhat ironically while tight locality invariants enable single round trip
+reads, loose locality invariants reduce the price of writes. Data structures
+with strict semantics such as ordering are difficult to maintain under
+contention as potentially many elements must be read, and reorganized to achieve
+an operation such as an insert.
 
 For example Sherman~\cite{sherman} uses relaxed ordering in its B-tree buckets
-so that writes can succeed more frequently in $O(1)$. Relaxed ordering also has
-the effect of reducing write amplification as only a single entry is written,
-and not an entire ordered bucket. Similarly One-Sided-Hash~\cite{one-sided-hash}
-uses associative cashing and power of two in order to allow for multiple write
-locations. By relaxing the structural invariants higher write performance is
-achieved. A structures overall performance will be impacted by how data layout
-is relaxed. As detailed in the prior section if the layout retains locality
-reads can remain $O(1)$ at the cost of bandwidth. If however a relaxed layout
-means that a writes location is determined by a traversal of many pointers it
-will skewer read performance.
+so that writes can succeed more frequently on their first try. Relaxed ordering
+also has the effect of reducing write amplification as only a single entry is
+written, and not an entire ordered bucket. Similarly
+One-Sided-Hash~\cite{one-sided-hash} uses associative cashing and power of two
+in order to allow for multiple write locations. By relaxing the structural
+invariants higher write performance is achieved. A structures overall
+performance will be impacted by how data layout is relaxed. As detailed in the
+prior section if the layout retains locality reads can remain $O(1)$ at the cost
+of bandwidth. If however a relaxed layout means that a writes location is
+determined by a traversal of many pointers it will skewer read performance.
 
 \sg{Techniques which amortize read cost may be benificial for read performance,
 for example if reading data the first time requires a high cost, but it becomes
@@ -669,11 +673,11 @@ invalid states during rotations.  To prevent invalid states lock free BSTs
 introduce complex intermediate states which are designed to route concurrent
 processes to the correct locations during updates. These structures take many
 CAS and write operations to complete. In the space of resource disaggregation
-O(1) operations are ideal, intricate and complex pointer structures care both
-prone to error, and cause many round trips to traverse. We consider the
-requirement for complex multi-pointer intermediate states to be a bad choice for
-disaggregated data structures as the complexity, and traversal time lead to
-errors, and poor tail latencies.
+$O(1)$ operations such as hash table lookups are ideal, intricate and complex
+pointer structures care both prone to error, and cause many round trips to
+traverse. We consider the requirement for complex multi-pointer intermediate
+states to be a bad choice for disaggregated data structures as the complexity,
+and traversal time lead to errors, and poor tail latencies.
  
 Multiple implementations of concurrent B-trees have been
 proposed~\cite{read-concur-btree,lock-free-btree}. The tradeoff between full
@@ -720,10 +724,11 @@ the hash doubles in side and all items are rehashed.
 Hopscotch hashing is designed to be cache efficient, as lookups would likely be
 on the same cache line. It has the additional advantage that when a value is
 written, its location is deterministic within a bound. In remote memory this
-allows for $O(1)$ lookups as the size of the read can be expanded to included
-the max distance an entry is from its starting location. The structure has the 
-unfortunate side effect that writes can take many round trips and complex
-locking due to the number of rewrites when the hopscotch algorithm is invoked.
+allows for lookups in a single round trip as the size of the read can be
+expanded to included the max distance an entry is from its starting location.
+The structure has the unfortunate side effect that writes can take many round
+trips and complex locking due to the number of rewrites when the hopscotch
+algorithm is invoked.
 
 
 \textbf{Blackbox Numa~\cite{black-box-numa}} proposes node replication, a
@@ -991,9 +996,9 @@ and that if the index must shuffle data such as cuckoo and hopscotch hashing,
 lock contention is inflated. RACE caches client metadata locally to avoid
 performing directory lookups in the common case. Client caching is a critical
 design point as RACE makes use of a two level directory which changes each time
-the hash table expands. The local client cache allows for O(1) lookups by
-examining the metadata on the client, and only traversing the true directory
-when version numbers have changed.
+the hash table expands. The local client cache allows for lookups in a single
+round trip by examining the metadata on the client, and only traversing the true
+directory when version numbers have changed.
 
 RACE main contribution is a hash index which is fast to query and expand using
 one-sided reads and writes. Read expansion is used liberally to increase the
@@ -1005,11 +1010,11 @@ as a buffer between each second bucket, this way there is additional space for
 overflow. The power of two is used to select multiple locations for writes. In
 total this forces reads to read two bucket locations and two overflow location
 per read.  With an associativity of 4. In total this gives an extremely high
-likelihood of $O(1)$ reads while coming at a cost of 16x the read bandwidth on
-the index. Read inflation is amortized by only performing two reads, and
-batching them together asynchronously. While this reduces the overall load on
-keys, is half's the theoretical reads per second due to the packet processing
-ability of the receiving side NIC. 
+likelihood of reads succeeding in a single round trip while coming at a cost of
+16x the read bandwidth on the index. Read inflation is amortized by only
+performing two reads, and batching them together asynchronously. While this
+reduces the overall load on keys, is half's the theoretical reads per second due
+to the packet processing ability of the receiving side NIC. 
 
 RACE uses concurrent lockless reads and inserts to improve average case
 performance. The main downside to RACE's overall hash table is its inability to
