@@ -1,0 +1,155 @@
+\section{Abstract}
+
+How to design disaggregated data structures is an open problem. This document
+studies design decisions which may improve hash table performance.
+
+\section{Introduction}
+
+Far memory data structures are difficult to work with, especially when the
+structures are shared by many processes. Obtaining serialization of operations
+can be expensive and slow when using only one sided operations. The issue is
+that when operations conflict clients need to retry their failed operations.
+This requires multiple round trips, and often reads and writes. Ideally
+operations can succeed in the common cases, and when conflicts do occur they can
+be cleaned up later. Our model of disaggregation is at the level of a single
+rack, where all of the machines are connected by a programmable switch. The
+switch has a perfect view of all the racks traffic and can modify the traffic in
+flight.
+
+\section{Existing Hash Tables}
+
+Clover~\cite{clover} and RACE~\cite{race}, are the only hash tables designed
+specifically with disaggregation in mind. Clover supports read and write
+operations on keys, writes append to a linked list, the tail of the list is the
+keys current address for reads. Clover is lockless, but does not readily support
+inserts and deletes at the rate that it supports reads and writes. RACE supports
+inserts, deletes, reads and writes, but it does so at significant costs to the
+application.
+
+\textbf{load balancing:} Race uses power of 2 hashing on inserts. It selects the
+location which has the lowest load. While this prevents load imbalance, reads
+need to read two indexes rather than one. Further concurrent inserts are not
+safe by their description if two concurrent writes occur and land in different
+hash buckets one must be deleted. This requires an additional read after each write.
+
+\textbf{Space:} Race uses associative hashing for each bucket. Each key can
+therefore land in at most 16 locations. This fact prevents inserts from failing
+in the common case, however on reads all 16 slots must be read.
+
+\textbf{CAS size:} CAS operations are 64 bits. Therefore all race atomic entries
+are pinned to 64 bit size. 48 bits of the 64 are used as an address offset, the
+other 16 are used half for the size of the key, and the other half is used as a
+hash of the key. THis means that writes can only take place in 255 sizes, and
+that we cannot verify that the key is correct until the data is read from the
+hash table. Ideally we could ensure that hash entry is correct with a single lookup.
+
+\textbf{Self Verifying Data:} Clover ensure reads are valid by inspecting a null
+pointer at the end of the write chain. In race the head pointer must be read,
+and then the data must be traversed too for each read. This means that in RACE
+all lookups require two round trips.
+
+\section{Potential Extensions}:
+
+\subsection{Hash table index}
+
+Ideally a hash table index will accept inserts fast, and be quick to look up. To
+achieve this we propose a hash table with deep buckets, that contain sequential
+elements. A hash table with 4 buckets \textit{00, 01, 10, 11} can hold an
+arbitrary number of entries. Each bucket can be allocated to an arbitrary
+location in remote memory they need not be sequential. However each bucket must
+have a large segment of sequential memory allocated to it.
+
+\textbf{Insert} When an insert occurs a client first allocates a buffer in
+remote memory for keys write values. Then it inserts a pointer to the buffer in
+the index. The key is hashed, and is placed in the bucket with the same prefix.
+If the bucket already has an entry, the insert appends the entry to the bucket.
+The insert contains a pointer to the buffer, and key information. The index
+value may be larger than 64 bits.
+
+\textbf{Append Consistency} Inserts to the index are append only and occur in
+multiple stages. The first state is \textit{tail allocate}. Appends run by
+executing a CAS operation to the current tail of the list. If the CAS succeeds
+that index is successfully allocated for the insert. The cas operation consists
+of a 64 bit pointer to the write buffer.
+
+\textbf{CAS as allocate} The CAS operation acts an an allocate operation. The
+index can be any set size, as long as it is pre determined by the clients. This
+allows the index to contain the full key, and any other helpful metadata about
+the structure. Note that the entire index can not be written by a single CAS, it
+is filled in afterwards by a write issued by the inserting client. The CAS
+merely marks that the insert has occurred. If a CAS'd but not written index is
+read by a client the client can choose to traverse to the write to discover what
+the key is, wait for the write to complete, or pass over the index. Failed
+writes can be garbage collected later. Index writes include a CRC so that write
+can be verified complete. This is similar to how pilaf allows for reads of
+incomplete data~\cite{pilaf}.
+
+\textbf{Conflicting Inserts} When performing an insert the client must first
+read the index to determine if a conflicting entry exists. The order of
+operations is that the client hashes it's key, reads the index. If the index
+exists, the insert is terminated. If the key does not exist the insert is
+appended to the bucket. If two inserts occur at the same time, for instance if
+an allocate occurs, but they key is not yet written, and another client runs an
+insert after the partially written one, the lowest index of the key is always
+taken buy subsequent reads and the following key is eventually garbage collected.
+
+\textbf{Potentails for Programable switches} This hash structure is designed for
+read and write steering. Because the number of buckets can be easily less than
+the number of entries a switch must only track the index counter for each bucket
+which may be far less than the total number of keys. Further if each bucket has
+fixed size entries the switch need only track the number of entries in the
+bucket rather than its virtual address. Assuming a max of 16 entries per bucket
+this allows for only 4 bits per bucket of metadata on the switch. Given Tofinio
+2 with 20 MB of SRAM this would allow the switch to handle inserts up to 640
+million keys. If we were to allow buckets to become 255 entries deep and use 8
+bits per bucket. The switch could support steering up to 40 billion end host
+keys.
+
+\textbf{Read optimizations} Because the index is append only, and the appends
+happen in sequential memory, on search reads can be expanded to capture more of
+the index. In the trivial case a read would be a single entry, if th entry is
+not the one the client is searching for, it would move to the next like a
+typical linked list. Here the client can expand it's read to capture more of the
+index in a single round trip, if it is known that the index is loaded. Further
+because the switch knows the load of each bucket it can resize the read to the
+correct size (or location) to capture the index value it is searching for.
+
+\subsection{Write Buffers} Write buffers operate similarly to the index. When a
+write occurs it is allocated first by issuing a CAS with the size of the entry
+to the end of the last write. If the CAS succeeds that write location is
+allocated. A following write operation fills in the rest of the buffer with the
+value, and the key of the actual write. The writes are self verifying, a CRC at
+the end of the write demonstrates that it is successfully written. It is known
+that CRCs are computationally expensive. One optimization would be to use
+network hardware to insert the CRC in the network. A new write can complete
+before a prior one has. An invalid write can be skipped over. Only the len is
+essential for the correctness of the entry. Note that this approach requires
+zeroed memory as following CAS operations must land zeros after the size denoted
+by the writes len. A client could locate a write by iteratively reading the len
+locations and hopping forward like a linked list. However because the data is
+also sequential it is possible to read a large chunk of data which captures many
+entries.
+
+\textbf{performing a write} Writes, like inserts first require knowing the index
+location. If a write has the index cached, it attempts to write to the end of
+the known write list. If it has stale data, it's CAS allocate will fail and it
+will proceed to read untill it finds the new tail of the write list. When a
+successful cas occurs the writer then fills in the allocation with a write.
+Finally the index is update to point to the new write location.
+
+\textbf{Updating the index on writes} Traditionally an update to the index would
+involve reading the old pointer location, then running a CAS(old,new). This same
+operation is safe, and can be used to ensure the latest write is easy to find.
+Note that we use the index pointer as a hint, and not as a definition of truth.
+After locating an index, a concurrent write may make the index invalid.
+
+\textbf{Unsafe index updates} For speed we could forgo using CAS and instead use
+FAA. Because writes are sequential in memory, the len of the prior entry can be
+FAA'd to the index pointer. This ensures that all index updates succeed because
+FAA is associate and CAS is not. If concurrent writes result in two FAA being
+delivered out of order the sum of the two will still be correct. Therefore the
+index will eventually be correct. If a read occurs in an inconsistent state we
+can use some sort of identifier in the write to know where the start and end of
+entries are. If a client dies before performing an update. Another client can
+always correct the index by reading the last entry, locking the writes, and then
+fixing it with a CAS.
