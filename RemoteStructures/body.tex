@@ -125,18 +125,38 @@ operation throughput and latency.
 
 \section{Background}
 
-Networks play a large role in determining how disaggregated computers will
-manifest.  The disaggregated model we consider most prevalent is that of the
-rack-scale computer. In the rack-scale design servers have a resource role:
-compute, memory, storage, accelerator. Each server is connected via a fast
-network (100Gbps Ethernet or above). The topology of the rack is up for debate,
-however many suggest that each server is interconnected with a traditional
-top-of-rack switch (TOR), or with a special-purpose middlebox for memory
-traffic~\cite{disandapp}. Proposals for other topologies such as torus exist,
-however we scope ourselves to the prior configuration. In the rack-scale model
-we consider all memory traffic in a rack transits a centralized switch, and all
-the traffic for an individual machine flows through that machines NIC.
-Figure~\ref{fig:rackscale} provides an overview of this system architecture.
+Server architecture is currently monolithic. All the resources a server owns are
+located within a single machine. In the common case these resources are a CPU,
+DRAM, and some amount of persistent storage (disk/SSD). Within a data center,
+servers are assigned widely differing roles such as data base managers,
+key-value stores, and machine learning coordinators despite having similar if
+not identical physical resources. Proponents of resource disaggregation contend
+that monolithic servers waste resources due to poor bin packing, and are
+inflexible to changing requirements. For a resource to be disaggregated it is
+self-contained, and accessible over a network. Disaggregated disks for instance
+have become commonplace within the last decade. The goal of complete physical
+disaggregation is that every server resource (CPU, memory, storage) be placed in
+a separate physical unit and be interconnected by a network.
+Figure~\ref{fig:rackscale} is an illustration of rack-scale
+disaggregation~\cite{disandapp}. Each server in the rack has a role, and all of
+the servers are interconnected by a fast network with a top of rack (TOR) switch
+at the center of the network. In disaggregated proposals memory and storage
+servers are passive, meaning that they have no colocated CPUs and are accessed
+exclusively by operations issued over the network by compute servers.
+
+
+% Networks play a large role in determining how disaggregated computers will
+% manifest.  The disaggregated model we consider most prevalent is that of the
+% rack-scale computer. In the rack-scale design servers have a resource role:
+% compute, memory, storage, accelerator. Each server is connected via a fast
+% network (100Gbps Ethernet or above). The topology of the rack is up for debate,
+% however many suggest that each server is interconnected with a traditional
+% top-of-rack switch (TOR), or with a special-purpose middlebox for memory
+% traffic~\cite{disandapp}. Proposals for other topologies such as torus exist,
+% however we scope ourselves to the prior configuration. In the rack-scale model
+% we consider all memory traffic in a rack transits a centralized switch, and all
+% the traffic for an individual machine flows through that machines NIC.
+% Figure~\ref{fig:rackscale} provides an overview of this system architecture.
 
 \begin{figure}[t]
     \begin{centering}
@@ -152,28 +172,31 @@ Figure~\ref{fig:rackscale} provides an overview of this system architecture.
 \end{figure}
 
 
-Disaggregation assumes that memory operations, i.e. reads and writes are issued
-over the network rather than across a traditional memory bus. RDMA is a popular
-networking technology which allows clients to read and write directly to a
-servers memory without CPU involvement. RDMA is also known for having high
-throughput and low latency. Due to its direct applicability most memory
-disaggregation proposals assume RDMA-capable networks as an essential
-architectural building block. However, alternative interconnect proposals exist.
+Partitioning servers into distinct roles provides a high degree of resource
+flexibility but comes at an additional latency cost. The access latency between
+a CPU and its local memory is 20x faster than memory accessed over a network. In
+pure resource disaggregation remote accesses are the norm, some proposals
+suggest using the CPUs last level cache fetches and evictions trigger remote
+reads and writes~\cite{legoos,kona}. This means that a naively implemented
+disaggregated server will be orders of magnitude slower than a monolithic
+server. Given that reads and writes from compute servers to memory servers must
+be fast, disaggregation proposals typically leverage RDMA as a means to access
+remote memory.  RDMA is a popular networking technology which allows clients to
+read and write directly to a servers memory without CPU involvement. RDMA is
+also known for having high throughput and low latency. Due to its direct
+applicability most memory disaggregation proposals assume RDMA-capable networks
+as an essential architectural building block. However, alternative interconnect
+proposals exist.
 
-GMS~\cite{gms} suggests that global memory be maintained alongside an entire
-networking stack. In pure resource disaggregation, no remote CPU's exist which
-exempts this approach.  Alternatively, rather than explicit reads and writes
-cache coherence algorithms could be used to fetch data from remote memory on
-custom interconnects such as in Kona~\cite{kona}.
-
-RDMA is a middle ground. The RDMA specification gives a set of \textit{verbs}
-which are memory operations that the NIC can execute. These verbs are similar in
-some respects to RPC calls, or simple instructions. As long as an algorithm can
-be described using the RDMA calls it can be executed on remote memory. The
-advantage to RDMA is that the operations it supports are general. The downside
-is that some algorithms are difficult to execute using one sided verbs. The
-prototypical example is pointer chasing which requires a round trip for each
-resolved pointer.
+Reading and writing to memory with RDMA is a substantially different interface
+than the load/store path a CPU uses for local memory.  The RDMA specification
+gives a set of \textit{verbs} which are memory operations that the NIC can
+execute. These verbs are similar in some respects to RPC calls, or simple
+instructions. As long as an algorithm can be described using the RDMA calls it
+can be executed on remote memory. The advantage to RDMA is that the operations
+it supports are general. The downside is that some algorithms are difficult to
+execute using one sided verbs. The prototypical example is pointer chasing which
+requires a round trip for each resolved pointer.
 
 The research space closest to practical memory disaggregation is RDMA key-value
 stores (KVS). The performance expectation for their read and write operations is
@@ -193,7 +216,7 @@ multi step critical sections, such as pointer chasing, with low latency.
 Unfortunately these hybrid approaches are not available to pure disaggregated
 systems.
 
-\todo{Programmable Networking}
+% Research from RDMA key-value stores has shown that the cost of using one sided operations 
 
 \section{Challenges}
 
@@ -591,11 +614,11 @@ numbers of each read do not match, the read is aborted.
          %& storm~\cite{storm}                                      &  &  &  &  &  &  &  \\ \cdashline{2-9}
          % & 1RMA~\cite{1rma}                                        &  &  &  &  &  &  &  \\ \hline \hline
 %\multirow{4}{*}{\rotatebox[origin=c]{90}{\shortstack{\small Disaggregated \\ \small Datastructures }}}        & Clover~\cite{clover}                                    & \nullcirc &  \halfcirc &  \nullcirc & \fullcirc & \fullcirc  & \nullcirc & \nullcirc \\ \cdashline{2-9}
-\multirow{5}{*}{\rotatebox[origin=c]{90}{\shortstack{\small Disaggregated \\ \small Datastructures }}}        & Clover~\cite{clover}                                    & \nullcirc &  \halfcirc &  \nullcirc & \fullcirc & \fullcirc  & \nullcirc & \nullcirc \\ \cdashline{2-9}
+\multirow{4}{*}{\rotatebox[origin=c]{90}{\shortstack{\small Disaggregated \\ \small Datastructures }}}        & Clover~\cite{clover}                                    & \nullcirc &  \halfcirc &  \nullcirc & \fullcirc & \fullcirc  & \nullcirc & \nullcirc \\ \cdashline{2-9}
 %\multirow{5}{*}{\rotatebox[origin=c]{90}{\shortstack{Far-Memory \\ Structures}}}        & Clover~\cite{clover}                                    & \nullcirc &  \halfcirc &  \nullcirc & \fullcirc & \fullcirc  & \nullcirc & \nullcirc \\ \cdashline{2-9}
          & \shortstack{RACE}~\cite{write-op-hash}            & \fullcirc  & \fullcirc & \halfcirc & \fullcirc & \fullcirc & \nullcirc & \fullcirc \\ \cdashline{2-9}
-         & Sherman~\cite{sherman}                            & \fullcirc & \fullcirc & \halfcirc & \fullcirc & \fullcirc & \fullcirc & \fullcirc \\ \cdashline{2-9}
-         & Ford~\todo{}                                          &  &  &  &  &  & \\ \cdashline{2-9}
+         & \shortstack{Sherman \\ ~\cite{sherman}}                            & \fullcirc & \fullcirc & \halfcirc & \fullcirc & \fullcirc & \fullcirc & \fullcirc \\ \cdashline{2-9}
+         %& Ford~\todo{}                                          &  &  &  &  &  & \\ \cdashline{2-9}
          & Mind~\cite{mind}                                              & \nullcirc & \halfcirc & \halfcirc & \nullcirc & \fullcirc & \nullcirc & \nullcirc \\ \hline
     \end{tabular}
 
@@ -1315,4 +1338,30 @@ data-structures to aid in disaggregated serialization.
 
 %\section{review}  
 
+%
 %\section{conclusion}
+
+
+
+% \begin{table*}[h]
+% %\begin{table}[h]
+%     \centering
+%     \begin{tabular}{ c | c | c | c | c | c | c | c | c }
+%         & project & \shortstack{read \\ inflation} & \shortstack{relaxed  \\ layout} & \shortstack{pre-\\compute} & \shortstack{optimistic \\ concurrency} & \shortstack{metadata \\ caching} & \shortstack{compute \\ coalescing} & \shortstack{self \\ verifing}  \\ \hline
+%                                                                 %N          %R          %P          %O          %M          %C          %W          %S
+% %Multicore NUMA & \shortstack{Flat \\ Combining}~\cite{flat-combine}   & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \fullcirc & \nullcirc \\ \hline
+% %Multicore NUMA & \shortstack{Hopscotch \\ Hash}~\cite{hopscotch}         & \fullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc \\ \hline
+% %Multicore NUMA & \shortstack{Blackbox \\ NUMA}~\cite{black-box-numa}     & \halfcirc & \nullcirc & \nullcirc & \fullcirc & \fullcirc & \fullcirc & \nullcirc \\ \hline %\cline{2-10} \cline{2-10}
+% %\shortstack{RDMA \\ Key-Value} & pilaf~\cite{pilaf}                                      & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \fullcirc \\ \hline
+% %\shortstack{RDMA \\ Key-Value} & farm~\cite{farm}                                        & \fullcirc & \nullcirc & \nullcirc & \fullcirc & \fullcirc & \fullcirc  & \nullcirc \\ \hline
+% %\shortstack{RDMA \\ Key-Value}& herd~\cite{herd}                                        & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc & \nullcirc  & \nullcirc \\ \hline
+% %\shortstack{RDMA \\ Key-Value}& cell~\cite{cell}                                        & \nullcirc & \nullcirc & \nullcirc & \halfcirc & \fullcirc & \nullcirc  & \fullcirc \\ \hline
+% %\shortstack{\small Disaggregated \\ \small Datastructures} & Clover~\cite{clover}                                    & \nullcirc &  \halfcirc &  \nullcirc & \fullcirc & \fullcirc  & \nullcirc & \nullcirc \\ \hline
+% %\shortstack{\small Disaggregated \\ \small Datastructures} & \shortstack{RACE}~\cite{write-op-hash}            & \fullcirc  & \fullcirc & \halfcirc & \fullcirc & \fullcirc & \nullcirc & \fullcirc \\ \hline
+% %\shortstack{\small Disaggregated \\ \small Datastructures} & \shortstack{Sherman \\ ~\cite{sherman}}                            & \fullcirc & \fullcirc & \halfcirc & \fullcirc & \fullcirc & \fullcirc & \fullcirc \\ \hline
+% \shortstack{\small Disaggregated \\ \small Datastructures} & Mind~\cite{mind}                                              & \nullcirc & \halfcirc & \halfcirc & \nullcirc & \fullcirc & \nullcirc & \nullcirc \\ \hline
+%     \end{tabular}
+
+    
+%     \label{tab:1}
+% \end{table*}

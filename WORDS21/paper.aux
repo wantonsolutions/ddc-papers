@@ -1,57 +1,76 @@
 \relax 
-\citation{gms}
-\citation{aguilera2019designing}
+\citation{infiniswap}
+\citation{legoos}
+\citation{leap}
 \citation{cell}
 \citation{sonuma}
 \citation{storm}
-\citation{clover}
+\citation{farm}
+\citation{herd}
+\citation{erpc}
+\citation{requirements}
 \citation{aguilera2019designing}
-\citation{memc3}
-\citation{cell}
-\citation{sonuma}
-\citation{storm}
-\citation{clover}
-\citation{aguilera2019designing}
-\citation{254120}
-\citation{memc3}
-\citation{cell}
-\citation{sonuma}
-\citation{storm}
-\citation{clover}
-\citation{aguilera2019designing}
-\citation{254120}
-\citation{254120}
-\citation{254120}
-\providecommand \oddpage@label [2]{}
-\@writefile{toc}{\contentsline {section}{\numberline {1}Proposal}{1}}
-\newlabel{sec:intro}{{1}{1}}
-\citation{sonuma}
-\citation{storm}
-\citation{clover}
-\citation{cell}
-\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Anatomy of a disaggregated rack. On the left a traditional rack with processors colocated with their memory interconnected by a switch. On the right is a high density disaggregated rack with processors separated from their memory by a top of rack switch. Stars mark locations for memory access serialization. Red denotes traditional processor centric serialization\nobreakspace  {}\cite  { memc3, cell, sonuma, storm, clover}, blue marks a memory centric architecture\nobreakspace  {}\cite  {aguilera2019designing}, and green marks a switch centric solution similar in spirit to proposed middle box solutions\nobreakspace  {}\cite  {254120}.  \relax }}{2}}
-\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
-\newlabel{fig:overview}{{1}{2}}
-\@writefile{toc}{\contentsline {section}{\numberline {2}Software and Hardware}{2}}
-\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Illustration of a successful write across different resource centric architectures with the location of memory consistency information labeled: \textbf  {MV} (Memory version), \textbf  {CMV} (Cached Memory Version) and \textbf  {NG} (Notify Groups). Processor centric writes are initiated and validated by processors exclusively. Successful writes require 1 RTT. Notifications, and retries (Not depicted) incur additional round trips. A memory centric architecture places memory version and notify groups in remote memory. Upon a successful write \textit  {notify} messages (blue) are set to each group member with updated memory versions. Switch centric architecture places memory versions, and notification responsibility to the switch. Processors send notify group info with writes to reduce memory overhead on the switch. Switch centric architecture saves half an RTT over memory centric, and cuts notify bandwidth in half. In the presence of an optical network, with no centralized switching chip, pNICs can provide the same functionality for a single server memory bank.  \relax }}{3}}
-\newlabel{fig:notify}{{2}{3}}
-\citation{storm}
-\citation{storm}
-\citation{clover}
-\citation{cell}
-\citation{254120}
+\citation{disandapp}
 \citation{amanda-hotnets}
-\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Prototype software components}{4}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Testbed}{4}}
-\@writefile{toc}{\contentsline {section}{\numberline {3}Satellite Problems}{4}}
+\citation{reigons}
+\citation{clover}
+\citation{reigons}
+\citation{clover}
+\citation{disandapp}
+\providecommand \oddpage@label [2]{}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Abstract}{1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {2}Intro}{1}\protected@file@percent }
+\newlabel{sec:intro}{{2}{1}}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Clover throughput degradation as a function of write workload {\color@box {}{todocolor}{\bfseries  \sffamily  \scriptsize  \leavevmode {\color  {white}TODO}}} {\leavevmode {\color  {todocolor}\sf  \small  $\blacktriangleright $\textit  {redo on my setup for consistent ops/s}$\blacktriangleleft $}}\relax }}{1}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{fig:clover_tput}{{1}{1}}
+\citation{memc3}
+\citation{cell}
+\citation{sonuma}
+\citation{storm}
+\citation{clover}
+\citation{aguilera2019designing}
+\citation{254120}
+\citation{memc3}
+\citation{cell}
+\citation{sonuma}
+\citation{storm}
+\citation{clover}
+\citation{aguilera2019designing}
+\citation{254120}
+\@writefile{toc}{\contentsline {section}{\numberline {3}Clover}{2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}Our System}{2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces \nobreakspace  {} {\color@box {}{todocolor}{\bfseries  \sffamily  \scriptsize  \leavevmode {\color  {white}TODO}}} {\leavevmode {\color  {todocolor}\sf  \small  $\blacktriangleright $\textit  {redo diagram to remove memory centric organization (it's a pipe dream)}$\blacktriangleleft $}} Anatomy of a disaggregated rack. On the left a traditional rack with processors colocated with their memory interconnected by a switch. On the right is a high density disaggregated rack with processors separated from their memory by a top of rack switch. Stars mark locations for memory access serialization. Red denotes traditional processor centric serialization\nobreakspace  {}\cite  {memc3, cell, sonuma, storm, clover}, blue marks a memory centric architecture\nobreakspace  {}\cite  {aguilera2019designing}, and green marks a switch centric solution similar in spirit to proposed middle box solutions\nobreakspace  {}\cite  {254120}.  \relax }}{3}\protected@file@percent }
+\newlabel{fig:overview}{{2}{3}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Clover write conflicts grow with the number of clients (50\% write zipf 0.99 distribution) {\color@box {}{todocolor}{\bfseries  \sffamily  \scriptsize  \leavevmode {\color  {white}TODO}}} {\leavevmode {\color  {todocolor}\sf  \small  $\blacktriangleright $\textit  {redo with 64 cores and writes only}$\blacktriangleleft $}}\relax }}{3}\protected@file@percent }
+\newlabel{fig:conflicts}{{3}{3}}
+\citation{design-guidelines}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Evaluation}{4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Conflict Resolution}{4}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Default Clover throughput vs Clover with write conflict detection and correction turned on.\relax }}{4}\protected@file@percent }
+\newlabel{fig:conflicts}{{4}{4}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Memory Consumption}{4}\protected@file@percent }
 \bibstyle{acm}
 \bibdata{paper}
 \bibcite{aguilera2019designing}{1}
-\bibcite{254120}{2}
-\bibcite{amanda-hotnets}{3}
-\bibcite{memc3}{4}
-\bibcite{gms}{5}
-\bibcite{cell}{6}
-\bibcite{sonuma}{7}
-\bibcite{storm}{8}
-\bibcite{clover}{9}
+\bibcite{reigons}{2}
+\bibcite{disandapp}{3}
+\bibcite{254120}{4}
+\bibcite{amanda-hotnets}{5}
+\bibcite{farm}{6}
+\bibcite{memc3}{7}
+\bibcite{requirements}{8}
+\bibcite{infiniswap}{9}
+\bibcite{erpc}{10}
+\bibcite{herd}{11}
+\bibcite{design-guidelines}{12}
+\bibcite{leap}{13}
+\bibcite{cell}{14}
+\bibcite{sonuma}{15}
+\bibcite{storm}{16}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Cost of caching metadata in network vs keyspace size.\relax }}{5}\protected@file@percent }
+\newlabel{fig:memory}{{5}{5}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Performance with reduced keyspace}{5}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6}Conclusion}{5}\protected@file@percent }
+\bibcite{legoos}{17}
+\bibcite{clover}{18}

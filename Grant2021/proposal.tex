@@ -1,15 +1,17 @@
 \section{Motivations}
 
 
-The case for resource disaggregation is relatively straightforward. Scalability,
-energy savings, density and dynamic composition of systems are the primary
-benefits. Given a disaggregated model it’s possible to compose a system which
-can meet arbitrary user requirements. Perhaps the easiest to understand is that
-a server can be provisioned with more ram than will fit into a single box. From
-a data center operator perspective one of the biggest advantages is that you
-don't need to actually upgrade a machine in order to change the provisioning
-that are being offered. Section 2.1 of \textit{Can Far Memory Improve Job
-Throughput} explains this point in detail~\cite{jobthroughput}. 
+The case for resource disaggregation is straightforward as it touches on many
+aspects of fundamental system design, however the implications and solutions to
+the open problems are not obvious. Scalability, energy savings, density and
+dynamic composition of systems are the primary proposed benefits. Given a
+disaggregated model it’s possible to compose a system which can meet arbitrary
+user requirements. Perhaps the easiest to understand is that a server can be
+provisioned with more ram than will fit into a single box. From a data center
+operator perspective one of the biggest advantages is that you don't need to
+actually upgrade a machine in order to change the provisioning that are being
+offered. Section 2.1 of \textit{Can Far Memory Improve Job Throughput} explains
+this point in detail~\cite{jobthroughput}. 
 
 Another bleeding edge but relevant advantage towards disaggregated designs is
 that they take into account current trends hardware accelerators. Traditional
@@ -35,9 +37,7 @@ Resource disaggregation essentially redesigns how a computer is composed, and
 therefore it is fraught with new problems to solve. Mainly in terms of
 performance, failures, and density.
 
-\textbf{Performance}
-
-Memory is the biggest performance concern, and the one which requires the most
+\textbf{Performance:} Memory is the biggest performance concern, and the one which requires the most
 innovation. The standard measure of performance degradation is 20x. Memory is
 roughly 50ns and remote memory is 1us. This are numbers actually tilted in the
 favor of remote memory, few projects have gone sub 1us and it's hard to call
@@ -63,8 +63,8 @@ concerns apply, but also concerns around small packets.
 
 
 
-\textbf{Failures}
-
+\textbf{Failures:}
+%%
 Resource disaggregation introduces new classes of failures. The most common
 example is how to deal with a portion of an address space disappearing.
 Solutions include adding redundancy for memory such as duplicating, or using
@@ -80,22 +80,24 @@ the serverless community which suggest making all computation compartmentalized.
 Disaggregation and the application~\cite{ddcaps} has the best argument for
 traditional signaling.
 
-\textbf{Density}
-
+\textbf{Density:}
+%%
 There are serious questions surrounding how to interact with new degrees of
 density. For instance, where does the kernel live, and how is it interacted
 with? Normally there is one kernel per box, but now there might be one kernel
 per rack. This could save a lot of memory overall. It raises interesting OS
 design questions about what a context switch would look like i.e memory
 protection might be more easily implemented in network and hardware rings of
-protection might not be nessisary. This also requires a redesign of how
+protection might not be necessary. This also requires a redesign of how
 scheduling and interrupts would be handled.
 
 Questions around loss are also relevant. For instance, the scale of losses given
 proposed disaggregation 
 
 
-\textbf{Data Structures} Data structures for remote memory are a key requirement
+\textbf{Data Structures:}
+%%
+Data structures for remote memory are a key requirement
 for disaggregated systems. The motivation here is that normal data structures
 tank in performance not due to their algorithm complexity but their poor
 consideration of the system. For instance a linked list in remote memory suffers
