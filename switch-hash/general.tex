@@ -52,6 +52,60 @@ all lookups require two round trips.
 
 \subsection{Hash table index}
 
+\begin{figure}[t] \includegraphics[width=0.485\textwidth]{fig/WriteBufEntry.pdf}
+%  \vskip -0.5em
+\caption{Individual Entry. Entries are allocated by executing CAS operations
+with the entry's length. If the CAS completes the entry is allocated. The body
+of the entry is filled by a traditional write. Reads are async and can se
+partially written data. A write entry is valid only once it can be read in it's
+entirety with a valid CRC}
+
+\label{fig:cas_vs_swap}
+%      \vskip -0.5em
+\end{figure}
+
+\begin{figure}[t] \includegraphics[width=0.485\textwidth]{fig/Index.pdf}
+%  \vskip -0.5em
+
+\caption{High level overview of the index. Hash buckets are determined by a hash
+prefix. Here 00,01,10,11. On inserts a key is hashed and appended to the bucket
+which it lands. Index entries are each write buf entries with a known fixed
+size. A switch can track entries per bucket with a counter. Therefore the number
+of buckets corresponds to the size of required switch memory. The depth of the
+buckets is dependent on the size of host memory.}
+
+\label{fig:cas_vs_swap}
+%      \vskip -0.5em
+\end{figure}
+
+\begin{figure}[t] \includegraphics[width=0.485\textwidth]{fig/AppendList.pdf}
+%  \vskip -0.5em
+%%
+\caption{Concurrent operations on a concurrent list. In the first operation a client
+issues a successful CAS of the entry size to allocate it's location and size. In
+the second operation another client attempts the same operation with a different
+length, and the operation fails as the allocation has already been made. The
+third image shows three concurrent operations. First the client which allocated
+with it's CAS in operation 1 proceeds to write into it's allocated buffer. The
+client from the second operation re-issules its CAS at a distance of LEN from
+it's last attempt, this time succeeding in it's allocation of size LEN\_2. At the
+same time a client attempts a read. The read is of size len + the CAS size. The
+read must be larger than the entry to tell if it's reading the tail. Here the
+read fails for 2 reasons. First the read was incomplete on the first entry
+because the write was partially complete, the CRC calculation will fail on the
+client. Second the client sees that the following entry has been allocated, and
+it has not read enough to determine if the following entry is valid. In the
+final example, the write for the second entry is partially completed by the
+second writer. The reader reissues a read of size {LEN + LEN\_2 + CAS}. This time
+the reader reads the entire first entry, and the second. It sees that the first
+is completed, and the second is incomplete, with no following write. In this
+case the reader sees the first entry as the valid value for this entry.}
+%%
+\label{fig:cas_vs_swap}
+%      \vskip -0.5em
+\end{figure}
+
+
 Ideally a hash table index will accept inserts fast, and be quick to look up. To
 achieve this we propose a hash table with deep buckets, that contain sequential
 elements. A hash table with 4 buckets \textit{00, 01, 10, 11} can hold an
@@ -136,6 +190,29 @@ the known write list. If it has stale data, it's CAS allocate will fail and it
 will proceed to read untill it finds the new tail of the write list. When a
 successful cas occurs the writer then fills in the allocation with a write.
 Finally the index is update to point to the new write location.
+
+\textbf{batch operations} Colocated clients can batch their operations for
+increased performance. When a CAS is issued to allocate a write, it can be
+allocated for multiple entries simply by increasing the size of the len to
+multiple entries. Once multiple entries have been written, the issuing client
+can resize the len by issuing a second CAS to the same location but for the size
+of only the first entry. To save this additional round trip a header bit could
+be set on the CAS which indicates to the reader that the allocation contains
+multiple entries. This way no round trip is required, and readers can
+asynchronously read individual entries as soon as they complete.
+
+\begin{figure}[t] \includegraphics[width=0.485\textwidth]{fig/write_updates.pdf}
+%  \vskip -0.5em
+
+\caption{ Unsafe index updates. Fetch-and-Add is used for pointer arithmetic
+rather than an explicit pointer update. In the common case Fetch-and-Add adjusts
+the pointer correctly. Under failures, or incorrect operation, CAS is a backup
+option when inconsistencies occur. (Many corner cases are left as an exercise to
+the reader.)}
+
+\label{fig:cas_vs_swap}
+%      \vskip -0.5em
+\end{figure}
 
 \textbf{Updating the index on writes} Traditionally an update to the index would
 involve reading the old pointer location, then running a CAS(old,new). This same
