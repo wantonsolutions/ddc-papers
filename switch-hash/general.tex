@@ -50,7 +50,13 @@ all lookups require two round trips.
 
 \section{Potential Extensions}:
 
-\subsection{Hash table index}
+Here we propose three structures. First a write unit with a simple
+implementation which allows for simple append operations to sequential memory
+addresses. Using this structure we propose a hash index, and hash table data
+structure. In all cases the data structures are designed to enable a switch
+without relying on one to do so.
+
+\subsection{Write Unit}:
 
 \begin{figure}[t] \includegraphics[width=0.485\textwidth]{fig/WriteBufEntry.pdf}
 %  \vskip -0.5em
@@ -60,9 +66,62 @@ of the entry is filled by a traditional write. Reads are async and can se
 partially written data. A write entry is valid only once it can be read in it's
 entirety with a valid CRC}
 
-\label{fig:cas_vs_swap}
+\label{fig:write_unit}
 %      \vskip -0.5em
 \end{figure}
+
+\textbf{CAS as allocate} In Clover and RACE data is written first, and once
+completed a CAS is issued which points to write. We opt instead for using CAS as
+an allocate, rather than commit operation. The CAS specifies the size of the
+entry to be written following the CAS in sequential memory. This approach is
+used in log structured file systems, and is the core of Black-Box
+Numa~\cite{black-box-numa}.  This approach has the advantage of enabling all
+writes to occur sequentially in memory. The disadvantage is that the reader must
+verify the write, and the writer must produce a CRC to self validate the write.
+This technique is popular in RDMA key value stores like Pilaf but has not been
+used in the remote memory context~\cite{pilaf,clover}
+Figure~\ref{fig:write_unit} shows both how reads and writes are performed on
+this write unit. 
+
+It is known that CRCs are computationally expensive.  One optimization would be
+to use network hardware to insert the CRC in the network.  A new write can
+complete before a prior one has. An invalid write can be skipped over. Only the
+len is essential for the correctness of the entry. Note that this approach
+requires zeroed memory as following CAS operations must land zeros after the
+size denoted by the writes len.
+
+\begin{figure}[t] \includegraphics[width=0.485\textwidth]{fig/AppendList.pdf}
+%  \vskip -0.5em
+%%
+\caption{Concurrent operations on write units.}
+%%
+\label{fig:append_list}
+%      \vskip -0.5em
+\end{figure}
+
+Figure~\ref{fig:append_list} Illustrates a more complex set of concurrent reads
+and writes on write units in sequential memory. In the first operation a client
+issues a successful CAS of the entry size to allocate it's location and size. In
+the second operation another client attempts the same operation with a different
+length, and the operation fails as the allocation has already been made. The
+third image shows three concurrent operations. First the client which allocated
+with it's CAS in operation 1 proceeds to write into it's allocated buffer. The
+client from the second operation re-issules its CAS at a distance of LEN from
+it's last attempt, this time succeeding in it's allocation of size LEN\_2. At
+the same time a client attempts a read. The read is of size len + the CAS size.
+The read must be larger than the entry to tell if it's reading the tail. Here
+the read fails for 2 reasons. First the read was incomplete on the first entry
+because the write was partially complete, the CRC calculation will fail on the
+client. Second the client sees that the following entry has been allocated, and
+it has not read enough to determine if the following entry is valid. In the
+final example, the write for the second entry is partially completed by the
+second writer. The reader reissues a read of size {LEN + LEN\_2 + CAS}. This
+time the reader reads the entire first entry, and the second. It sees that the
+first is completed, and the second is incomplete, with no following write. In
+this case the reader sees the first entry as the valid value for this entry.
+
+
+\subsection{Hash table index}
 
 \begin{figure}[t] \includegraphics[width=0.485\textwidth]{fig/Index.pdf}
 %  \vskip -0.5em
@@ -74,37 +133,9 @@ size. A switch can track entries per bucket with a counter. Therefore the number
 of buckets corresponds to the size of required switch memory. The depth of the
 buckets is dependent on the size of host memory.}
 
-\label{fig:cas_vs_swap}
+\label{fig:index}
 %      \vskip -0.5em
 \end{figure}
-
-\begin{figure}[t] \includegraphics[width=0.485\textwidth]{fig/AppendList.pdf}
-%  \vskip -0.5em
-%%
-\caption{Concurrent operations on a concurrent list. In the first operation a client
-issues a successful CAS of the entry size to allocate it's location and size. In
-the second operation another client attempts the same operation with a different
-length, and the operation fails as the allocation has already been made. The
-third image shows three concurrent operations. First the client which allocated
-with it's CAS in operation 1 proceeds to write into it's allocated buffer. The
-client from the second operation re-issules its CAS at a distance of LEN from
-it's last attempt, this time succeeding in it's allocation of size LEN\_2. At the
-same time a client attempts a read. The read is of size len + the CAS size. The
-read must be larger than the entry to tell if it's reading the tail. Here the
-read fails for 2 reasons. First the read was incomplete on the first entry
-because the write was partially complete, the CRC calculation will fail on the
-client. Second the client sees that the following entry has been allocated, and
-it has not read enough to determine if the following entry is valid. In the
-final example, the write for the second entry is partially completed by the
-second writer. The reader reissues a read of size {LEN + LEN\_2 + CAS}. This time
-the reader reads the entire first entry, and the second. It sees that the first
-is completed, and the second is incomplete, with no following write. In this
-case the reader sees the first entry as the valid value for this entry.}
-%%
-\label{fig:cas_vs_swap}
-%      \vskip -0.5em
-\end{figure}
-
 
 Ideally a hash table index will accept inserts fast, and be quick to look up. To
 achieve this we propose a hash table with deep buckets, that contain sequential
@@ -113,30 +144,27 @@ arbitrary number of entries. Each bucket can be allocated to an arbitrary
 location in remote memory they need not be sequential. However each bucket must
 have a large segment of sequential memory allocated to it.
 
+\textbf{Relaxed Write Units} Each entry in the index is fixed sized, therefore
+the requirement that our write unit contain the len of the entry as CAS value
+need not be true. We can relax our write unit to only require a CRC and allow
+the CAS to contain a pointer to the indexes write value. This saves space, and
+allows the insert to be immediately readable prior to finishing the write units
+following write.
+
 \textbf{Insert} When an insert occurs a client first allocates a buffer in
-remote memory for keys write values. Then it inserts a pointer to the buffer in
-the index. The key is hashed, and is placed in the bucket with the same prefix.
-If the bucket already has an entry, the insert appends the entry to the bucket.
-The insert contains a pointer to the buffer, and key information. The index
-value may be larger than 64 bits.
+remote memory for keys write values. This allocation is outside of the index.
+Next the client hashes the key, and appends a write unit pointing to it's write
+value into the index. Additional index information such as the key are inserted
+into the allocated entry space by a following write. Note that prior to the
+write finishing the value is readable. Any reader can traverse the atomically
+committed pointer and inspect the writes value without danger.
 
-\textbf{Append Consistency} Inserts to the index are append only and occur in
-multiple stages. The first state is \textit{tail allocate}. Appends run by
-executing a CAS operation to the current tail of the list. If the CAS succeeds
-that index is successfully allocated for the insert. The cas operation consists
-of a 64 bit pointer to the write buffer.
-
-\textbf{CAS as allocate} The CAS operation acts an an allocate operation. The
-index can be any set size, as long as it is pre determined by the clients. This
-allows the index to contain the full key, and any other helpful metadata about
-the structure. Note that the entire index can not be written by a single CAS, it
-is filled in afterwards by a write issued by the inserting client. The CAS
-merely marks that the insert has occurred. If a CAS'd but not written index is
-read by a client the client can choose to traverse to the write to discover what
-the key is, wait for the write to complete, or pass over the index. Failed
-writes can be garbage collected later. Index writes include a CRC so that write
-can be verified complete. This is similar to how pilaf allows for reads of
-incomplete data~\cite{pilaf}.
+\textbf{Index Structure} Using write units, rather than 64 bit CAS values as
+primitives for the index provides advantages over RACE. First it enables the
+full use of the 64 bit address space. Second it enables clients to obtain more
+information from the index, such as the true key value (not just a hash). Third
+it enables the values written to be arbitrarily sized (RACE supports 255 sizes
+only).
 
 \textbf{Conflicting Inserts} When performing an insert the client must first
 read the index to determine if a conflicting entry exists. The order of
@@ -147,17 +175,18 @@ an allocate occurs, but they key is not yet written, and another client runs an
 insert after the partially written one, the lowest index of the key is always
 taken buy subsequent reads and the following key is eventually garbage collected.
 
-\textbf{Potentails for Programable switches} This hash structure is designed for
-read and write steering. Because the number of buckets can be easily less than
-the number of entries a switch must only track the index counter for each bucket
-which may be far less than the total number of keys. Further if each bucket has
-fixed size entries the switch need only track the number of entries in the
-bucket rather than its virtual address. Assuming a max of 16 entries per bucket
-this allows for only 4 bits per bucket of metadata on the switch. Given Tofinio
-2 with 20 MB of SRAM this would allow the switch to handle inserts up to 640
-million keys. If we were to allow buckets to become 255 entries deep and use 8
-bits per bucket. The switch could support steering up to 40 billion end host
-keys.
+\textbf{Potential for Programable switches} This hash structure is designed for
+read and write steering. Figure~\cite{fig:Index} shows how the hash size scales
+relative to switch memory and host memory. Because the number of buckets can be
+easily less than the number of entries a switch must only track the index
+counter for each bucket which may be far less than the total number of keys.
+Further if each bucket has fixed size entries the switch need only track the
+number of entries in the bucket rather than its virtual address. Assuming a max
+of 16 entries per bucket this allows for only 4 bits per bucket of metadata on
+the switch. Given Tofinio 2 with 20 MB of SRAM this would allow the switch to
+handle inserts up to 640 million keys. If we were to allow buckets to become 255
+entries deep and use 8 bits per bucket. The switch could support steering up to
+40 billion end host keys.
 
 \textbf{Read optimizations} Because the index is append only, and the appends
 happen in sequential memory, on search reads can be expanded to capture more of
@@ -168,38 +197,29 @@ index in a single round trip, if it is known that the index is loaded. Further
 because the switch knows the load of each bucket it can resize the read to the
 correct size (or location) to capture the index value it is searching for.
 
-\subsection{Write Buffers} Write buffers operate similarly to the index. When a
-write occurs it is allocated first by issuing a CAS with the size of the entry
-to the end of the last write. If the CAS succeeds that write location is
-allocated. A following write operation fills in the rest of the buffer with the
-value, and the key of the actual write. The writes are self verifying, a CRC at
-the end of the write demonstrates that it is successfully written. It is known
-that CRCs are computationally expensive. One optimization would be to use
-network hardware to insert the CRC in the network. A new write can complete
-before a prior one has. An invalid write can be skipped over. Only the len is
-essential for the correctness of the entry. Note that this approach requires
-zeroed memory as following CAS operations must land zeros after the size denoted
-by the writes len. A client could locate a write by iteratively reading the len
-locations and hopping forward like a linked list. However because the data is
-also sequential it is possible to read a large chunk of data which captures many
-entries.
+\subsection{Write Buffers} 
+
+Write buffers operate similarly to the index but are for tracking writes to a
+single key. Writes and reads are performed like default write units. Writes can
+have any size, and are self validating.
 
 \textbf{performing a write} Writes, like inserts first require knowing the index
 location. If a write has the index cached, it attempts to write to the end of
 the known write list. If it has stale data, it's CAS allocate will fail and it
-will proceed to read untill it finds the new tail of the write list. When a
-successful cas occurs the writer then fills in the allocation with a write.
+will proceed to read until it finds the new tail of the write list. When a
+successful CAS occurs the writer then fills in the allocation with a write.
 Finally the index is update to point to the new write location.
 
-\textbf{batch operations} Colocated clients can batch their operations for
-increased performance. When a CAS is issued to allocate a write, it can be
-allocated for multiple entries simply by increasing the size of the len to
-multiple entries. Once multiple entries have been written, the issuing client
-can resize the len by issuing a second CAS to the same location but for the size
-of only the first entry. To save this additional round trip a header bit could
-be set on the CAS which indicates to the reader that the allocation contains
-multiple entries. This way no round trip is required, and readers can
-asynchronously read individual entries as soon as they complete.
+\textbf{batch operations} Colocated clients can batch their operations (ex flat
+combining~\cite{flat-combine}) for increased performance. When a CAS is issued
+to allocate a write, it can be allocated for multiple entries simply by
+increasing the size of the len to multiple entries. Once multiple entries have
+been written, the issuing client can resize the len by issuing a second CAS to
+the same location but for the size of only the first entry. To save this
+additional round trip a header bit could be set on the CAS which indicates to
+the reader that the allocation contains multiple entries. This way no round trip
+is required, and readers can asynchronously read individual entries as soon as
+they complete.
 
 \begin{figure}[t] \includegraphics[width=0.485\textwidth]{fig/write_updates.pdf}
 %  \vskip -0.5em
@@ -210,7 +230,7 @@ the pointer correctly. Under failures, or incorrect operation, CAS is a backup
 option when inconsistencies occur. (Many corner cases are left as an exercise to
 the reader.)}
 
-\label{fig:cas_vs_swap}
+\label{fig:wait_free_update}
 %      \vskip -0.5em
 \end{figure}
 
@@ -220,13 +240,14 @@ operation is safe, and can be used to ensure the latest write is easy to find.
 Note that we use the index pointer as a hint, and not as a definition of truth.
 After locating an index, a concurrent write may make the index invalid.
 
-\textbf{Unsafe index updates} For speed we could forgo using CAS and instead use
+\textbf{Wait-Free index updates} For speed we could forgo using CAS and instead use
 FAA. Because writes are sequential in memory, the len of the prior entry can be
-FAA'd to the index pointer. This ensures that all index updates succeed because
-FAA is associate and CAS is not. If concurrent writes result in two FAA being
-delivered out of order the sum of the two will still be correct. Therefore the
-index will eventually be correct. If a read occurs in an inconsistent state we
-can use some sort of identifier in the write to know where the start and end of
-entries are. If a client dies before performing an update. Another client can
-always correct the index by reading the last entry, locking the writes, and then
-fixing it with a CAS.
+FAA'd to the index pointer. Figure~\ref{wait_free_update} shows the wait-free
+algorithm. This ensures that all index updates succeed because FAA is associate
+and CAS is not. If concurrent writes result in two FAA being delivered out of
+order the sum of the two will still be correct. Therefore the index will
+eventually be correct. If a read occurs in an inconsistent state we can use some
+sort of identifier in the write to know where the start and end of entries are.
+If a client dies before performing an update. Another client can always correct
+the index by reading the last entry, locking the writes, and then fixing it with
+a CAS.
