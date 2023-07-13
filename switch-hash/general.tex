@@ -60,7 +60,7 @@ without relying on one to do so.
 
 \begin{figure}[t] \includegraphics[width=0.485\textwidth]{fig/WriteBufEntry.pdf}
 %  \vskip -0.5em
-\caption{Individual Entry. Entries are allocated by executing CAS operations
+\caption{Write Unit. Write Units are allocated by executing CAS operations
 with the entry's length. If the CAS completes the entry is allocated. The body
 of the entry is filled by a traditional write. Reads are async and can se
 partially written data. A write entry is valid only once it can be read in it's
@@ -242,7 +242,7 @@ After locating an index, a concurrent write may make the index invalid.
 
 \textbf{Wait-Free index updates} For speed we could forgo using CAS and instead use
 FAA. Because writes are sequential in memory, the len of the prior entry can be
-FAA'd to the index pointer. Figure~\ref{wait_free_update} shows the wait-free
+FAA'd to the index pointer. Figure~\ref{fig:wait_free_update} shows the wait-free
 algorithm. This ensures that all index updates succeed because FAA is associate
 and CAS is not. If concurrent writes result in two FAA being delivered out of
 order the sum of the two will still be correct. Therefore the index will
@@ -251,3 +251,19 @@ sort of identifier in the write to know where the start and end of entries are.
 If a client dies before performing an update. Another client can always correct
 the index by reading the last entry, locking the writes, and then fixing it with
 a CAS.
+
+
+\section{Unorganized notes}
+
+\textbf{Horton tables} provide a hash table which uses SIMD instructions for
+more memory efficient hash tables~\cite{horton}. This work has Dean Tulson on
+it, I can always go ask him for some more information. They use a primary hash,
+and many sub hashes to decrease collisions. 
+
+\textbf{Cuckoo++ Tables} These use bloom filters to reduce the number of
+additional messages sent to one hash index. I think the idea is that in the
+optimisic case a request goes to the first hash location. And in the pessemistic
+case it goes to both. Using both causes memory bandwidth issues (this will be
+true for me too), but the round trip time is also a killer. The bloom filter
+just reduces traffic.
+

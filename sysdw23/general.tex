@@ -57,8 +57,125 @@ switch to remove contention in the general case.
 
 \section{Swordbox}
 
+Pointer chasing is a fundamental challenge in memory
+disaggregation. Every pointer dereference in far memory
+requires an expensive round trip. This fact restricts the
+use of many pointer based structures in remote memory. For
+instance link lists and trees commonly require O(n) and
+O(log n) round trips respectively to traverse. Hash tables
+with chaining can exhibit similar performance problems.
+Although some proposals have called for pointer chasing
+primitives ~\cite{supernic, prism} these primitives are not
+yet available in commodity hardware.
+
+Without contention some pointer bases structures can be made
+to work in remote memory, as caching the structure locally
+can greatly amortize the cost of resolving remote pointers.
+However, if the structure is shared, caches become
+invalidated on writes especially under contention.
+
+\textit{Swordbox} makes the observation that within a rack a
+TOR sees all traffic. Therefore, a programmable switch can
+observe all updates to a shared data structure in a
+perfectly serialized order. Opportunistic requests which
+would otherwise fail can be corrected in flight by the
+switch with it's cached up to date information so that no
+operations need fail.
+
+We demonstrate this by implementing swordbox in P4 and
+demonstrate it's performance benifits for a remote memory
+system Clover~\cite{clover} a system for persistant remote
+memory. Clients in clover persist their key-value writes by
+appending to a shared linked list. Appends fail if they are
+made to any location other than the tail of the list.
+Concurrent writes lead to failed request in which clients
+race and pointer chase for a successful requst for the tail.
+Swordbox caches the tail pointer on the switch, and when
+stale request are seen they are updated at line rate and
+made to succeed.  We demonstrate that under contention
+swordbox can improve throughput by nearly 35x and reduce
+tail latency by 300x. \todo{add a figure of the failure
+rate, and of clover vs swordbox.}
+
 \section{RCuckoo}
 
-\section{Black Box Dissagregation}
+Not all data structures are amenable to oportunistic
+updates, but traditional locking port poorly to remote
+memory. Acquiring, and then releasing a lock requires at
+minimum two round trips, a fact which not only increases the
+minimum operation duration, but which sets a minimum
+duration on critical sections. A system with a 2us round
+trip time, and a single global lock can only perform 500,000
+operations per second in the best case (meger numbers when
+considering that decakes old key value stores acheive 10's
+of millions of requests per second ~\cite{herd}). Fine
+grained locking is a requirement. Unfortunatly fine grained
+locking suffers from a duel problem, deadlock free lock
+acquisition requires a round trip per lock inflating
+operation time. 
+
+With RDMA atomics many locks can be aquired in a single
+operation, but only if they are within the word width of the
+RDMA atomic (64 bits). Fine grained locking is therefore a
+challenge of achieving good lock locality.
+
+With this in mind we investigate porting cuckoo hashing to
+remote memory. Cuckoo hashing has long been known to perform
+well with RDMA reads as lookups must search at most 2
+locations~\cite{pilaf, farm}. The complexity of cuckoo
+hashing is pushed to writes which perform swaps randomly
+throughout the table. We develop a new algorithm for
+locality aware cuckoo hashing. Both hash location are with
+high probabiltiy located close together. Insertions are
+therefore more likely to be localized to a small reigion of
+the tabe rather than random, and the locks can be aquired in
+few round trips. In addition we use locality to improve
+searching for hash table openings using locality aware
+search (A*) to find minimal distance insertion paths. We
+achieve on average 2 round trips per insertion and
+demonstrate that we out perform state of the art remote
+memory hashing algorithms in simulation.
+
+\todo{add the figure of the A* search and the number of
+round trips per lock}
+
+
+\section{Black Box Disaggregation}
+
+A question remains about general data structure design for
+remote memory. while high performanc can be achieved through
+careful data structure design, is it possible enable general
+data structure design for remote memory? My future research
+direction aims to explore this question.
+
+Prior work on NUMA systems has shown that highly concurrent
+data structures can be desigend in geneal with a technqiue
+known as \textit{node replication}. All operations to a
+shared structure are made by appending the operations to a
+shared log. Clients wishing to commit operations first read
+the log, construct the dat structure locally, and then
+append to the end of the log their new operation~\cite{bbd}.
+
+This technique experiences the same contention issues as
+clover in that multiple clients race for the tail of the
+list, however on NUMA nodes the memory latency is low enough
+that the technqiue scales well enough for practical
+purposes. 
+
+We propose a similar technqiue for remote memory, with the
+addition that switch, or programmable nic close to memory be
+used to remove contention from the shared list. The switch
+or NIC can provide two fold services. The first of which is
+to steer appends to the shared list to the end of the list
+enabling the success of each client request. Second when
+clients read the shared log, and are unaware of the tail
+location, the switch can inflate the size of the reads in
+flight by modifying the RDMA read request. 
+
+Using these techniques black box disaggregation can enable
+generic high performance shared data structures for remote
+memory.
+
+\todo{include a diagram of the system}.
 
 \section{Conclusion}
