@@ -1,0 +1,64 @@
+% \section{Abstract}
+
+\section{Forward}
+
+For the past decade compute has steadily outstripped memory
+in terms of density. CPU's have access to less per core
+memory each year leading to new proposals for memory
+architectures. Resource disaggregation promises to enable
+more efficient memory utilization by attaching large shared
+pools of DRAM to CPU's over a network. Large pools of memory
+can be apportioned with less fragmentation than traditional
+local memory.
+
+Memory disaggregation introduces new challenges specifically
+in terms of latency. Low latency interconnects such as RDMA
+have round trip latencies of 1-2us, approximately 20x that
+of local memory. Existing memory disaggregation systems have
+amortized the additional latency by using remote memory for
+traditionally slower subsystems i.e swap devices
+~\cite{fastswap, legoos}. These approaches largely avoid a
+key feature of local memory mainly sharing. Sharing remote
+memory is difficult due to the cost of synchronization and
+contention.
+
+Shared data structures in remote memory can suffer abysmal
+performance when accessed concurrently. The size of critical
+sections are amplified by the round trip time required to
+accesses locks, and opportunistic approaches suffer under
+contention as the probability that their opportunistic
+updates will become stale increases.
+
+%% Todo this is my research statement work hard on it.
+My work focuses on the design of rack scale remote memory
+systems. Specifically on the role that programmable network
+devices can play in the design of algorithms and data
+structures for far memory. Both switches and NIC's are in
+the privileged position of centralization, switches see all
+traffic within the rack, and NICs all the traffic to and
+from their host machines (or NUMA node). This position gives
+these devices the ability to cache and arbitrate data, and
+access to data for shared resources. 
+
+This research summary covers three projects which illustrate
+different ways in which these devices, and algorithm design
+can improve performance. The first system \textit{Swordbox}
+demonstrates that by caching a small amount of data
+structure metadata contention can be removed in network
+enabling up to 40x improvement in throughput and 300x
+reduction in tail latency for contested workloads. The
+second project \textit{RCuckoo} shows how with careful
+algorithm design and the judicial use of RDMA features a
+traditional local memory algorithm can be ported to remote
+memory. Finally this work presents an outline for general
+data structure design for remote memory using a programmable
+switch to remove contention in the general case.
+
+
+\section{Swordbox}
+
+\section{RCuckoo}
+
+\section{Black Box Dissagregation}
+
+\section{Conclusion}
