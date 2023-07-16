@@ -7,11 +7,11 @@ center servers has only increased over the past decade.
 Simultaneously networks have doubled in capacity at an
 increasing rate and have integrated line rate
 programmability into many commodity chips. These trends have
-yielded many research proposals for attacking the
+yielded various research proposals for attacking the
 \textit{memory wall} with fast networks. Memory
 disaggregation proposes the addition of pools of far-memory
 attached over a network to clusters of compute machines,
-with the promise that large shared pools with decrease
+with the promise that large shared pools will decrease
 memory stranding and increase overall memory utilization.
 
 Latency is the chief challenge in realizing practical memory
@@ -65,24 +65,18 @@ using a programmable switch to remove contention in the
 general case.
 
 
-\section{Swordbox}
+\section{Optimistic Data Structures}
 
-Pointer chasing is a fundamental challenge in memory
-disaggregation. Every pointer dereference in far memory
-requires an expensive round trip. This fact restricts the
-use of many pointer based structures in remote memory. For
-instance link lists and trees commonly require O(n) and
-O(log n) round trips respectively to traverse. Hash tables
-with chaining can exhibit similar performance problems.
-Although some proposals have called for pointer chasing
-primitives ~\cite{supernic, prism} these primitives are not
-yet available in commodity hardware.
-
-Without contention some pointer bases structures can be made
-to work in remote memory, as caching the structure locally
-can greatly amortize the cost of resolving remote pointers.
-However, if the structure is shared, caches become
-invalidated on writes especially under contention.
+Pointers are an issue for far memory data structures. Each
+pointer dereference requires an expensive round trip.
+Structures like linked lists, and trees lead to
+\textit{pointer chasing}, when many round trips are required
+to finish each operation. Some proposals have called for
+pointer chasing primitives built into networking
+hardware~\cite{prisim, supernic}, but none are available in
+commodity hardware. In the absence of this hardware
+algorithmic techniques are required to reduce the number of
+pointer dereferences per operation.
 
 \textit{Swordbox} makes the observation that within a rack a
 TOR sees all traffic. Therefore, a programmable switch can
