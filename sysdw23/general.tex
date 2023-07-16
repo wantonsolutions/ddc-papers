@@ -2,57 +2,67 @@
 
 \section{Forward}
 
-For the past decade compute has steadily outstripped memory
-in terms of density. CPU's have access to less per core
-memory each year leading to new proposals for memory
-architectures. Resource disaggregation promises to enable
-more efficient memory utilization by attaching large shared
-pools of DRAM to CPU's over a network. Large pools of memory
-can be apportioned with less fragmentation than traditional
-local memory.
+The imbalance between compute and memory capacity for data
+center servers has only increased over the past decade.
+Simultaneously networks have doubled in capacity at an
+increasing rate and have integrated line rate
+programmability into many commodity chips. These trends have
+yielded many research proposals for attacking the
+\textit{memory wall} with fast networks. Memory
+disaggregation proposes the addition of pools of far-memory
+attached over a network to clusters of compute machines,
+with the promise that large shared pools with decrease
+memory stranding and increase overall memory utilization.
 
-Memory disaggregation introduces new challenges specifically
-in terms of latency. Low latency interconnects such as RDMA
-have round trip latencies of 1-2us, approximately 20x that
-of local memory. Existing memory disaggregation systems have
-amortized the additional latency by using remote memory for
-traditionally slower subsystems i.e swap devices
-~\cite{fastswap, legoos}. These approaches largely avoid a
-key feature of local memory mainly sharing. Sharing remote
-memory is difficult due to the cost of synchronization and
-contention.
+Latency is the chief challenge in realizing practical memory
+disaggregation. Low-latency interconnects such as RDMA have
+intra-rack round trip latencies on the order of 1-2$\mu$s.
+In contrast to local memory DRAM access times of 50-100ns
+RDMA latency is a 20x overhead. This disparity prevents many
+data structures, and system functions from being deployable
+for remote memory. Existing systems have amortized the
+network cost by porting slower subsystems i.e swap devices
+~\cite{fastswap, legoos}\todo{add more}. 
 
-Shared data structures in remote memory can suffer abysmal
-performance when accessed concurrently. The size of critical
-sections are amplified by the round trip time required to
-accesses locks, and opportunistic approaches suffer under
-contention as the probability that their opportunistic
-updates will become stale increases.
+These systems avoid a key feature of local memory
+\textit{sharing}. Shared data structures in remote memory
+can suffer abysmal performance when accessed concurrently.
+Both traditional lock based and optimistically concurrent
+data structures suffer abysmal performance when ported to
+remote memory. Lock based algorithms have inflated critical
+section sizes due to round trip delays, and optimistic
+approaches suffer from stale caches under contention, and
+the increased cost of reading to synchronize caches. In
+general shared structures are hard to port to remote memory.
 
 %% Todo this is my research statement work hard on it.
-My work focuses on the design of rack scale remote memory
-systems. Specifically on the role that programmable network
-devices can play in the design of algorithms and data
-structures for far memory. Both switches and NIC's are in
-the privileged position of centralization, switches see all
-traffic within the rack, and NICs all the traffic to and
-from their host machines (or NUMA node). This position gives
-these devices the ability to cache and arbitrate data, and
-access to data for shared resources. 
+My work focuses on the design of algorithms and data
+structures for remote memory.  A key insight of my work is
+that the performance pitfalls of remote memory arise from
+memory not having colocated compute to serialize operations.
+We note that this pitfall is unnecessary because the network
+implicitly serializes each operation during transit and
+programable elements within the network can administrate
+algorithm level serialization at line rate. With this
+observation in mind we design shared far memory systems
+using programmable devices such as NIC's and switches to
+accelerate performance.
 
 This research summary covers three projects which illustrate
-different ways in which these devices, and algorithm design
-can improve performance. The first system \textit{Swordbox}
-demonstrates that by caching a small amount of data
-structure metadata contention can be removed in network
-enabling up to 40x improvement in throughput and 300x
-reduction in tail latency for contested workloads. The
-second project \textit{RCuckoo} shows how with careful
-algorithm design and the judicial use of RDMA features a
-traditional local memory algorithm can be ported to remote
-memory. Finally this work presents an outline for general
-data structure design for remote memory using a programmable
-switch to remove contention in the general case.
+how these devices can be used to improve optimistic data
+structures, lock-based structures, and finally, shared
+structures in general.  The first system \textit{Swordbox}
+demonstrates that by caching the operations of an optimistic
+algorithm on a programmable switch contention can be
+entirely removed in network enabling up to 40x improvement
+in throughput and 300x reduction in tail latency for
+contested workloads. The second project \textit{RCuckoo}
+shows how with careful algorithm design and the judicial use
+of RDMA features a traditional local memory algorithm can be
+ported to remote memory. Finally this work presents an
+outline for general data structure design for remote memory
+using a programmable switch to remove contention in the
+general case.
 
 
 \section{Swordbox}
