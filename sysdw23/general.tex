@@ -1,6 +1,6 @@
 % \section{Abstract}
 
-\section{Forward}
+\section{Introduction}
 
 The imbalance between compute and memory capacity for data
 center servers has only increased over the past decade.
@@ -67,39 +67,78 @@ general case.
 
 \section{Optimistic Data Structures}
 
-Pointers are an issue for far memory data structures. Each
-pointer dereference requires an expensive round trip.
-Structures like linked lists, and trees lead to
-\textit{pointer chasing}, when many round trips are required
-to finish each operation. Some proposals have called for
-pointer chasing primitives built into networking
-hardware~\cite{prisim, supernic}, but none are available in
-commodity hardware. In the absence of this hardware
-algorithmic techniques are required to reduce the number of
-pointer dereferences per operation.
+Optimistic concurrency enables high degrees of parallelism
+in the absence of contention. At a high level concurrent
+processes keep a cache of a shared structures state, and
+then issue operations which succeed if the cache of read, or
+written data is synchronized with the shared structure. When
+memory latency, and contention are high synchronization is
+difficult as reads are slower and more expensive quickly
+causing local caches to become stale.
 
-\textit{Swordbox} makes the observation that within a rack a
-TOR sees all traffic. Therefore, a programmable switch can
-observe all updates to a shared data structure in a
-perfectly serialized order. Opportunistic requests which
-would otherwise fail can be corrected in flight by the
-switch with it's cached up to date information so that no
-operations need fail.
+In our work \textit{Swordbox} we make the observation that
+at rack-scale the top-of-rack (TOR) switch observes all
+memory operations in serialized order. This de facto
+serialization enables a programmable switch to resolve
+conflicting updates to a shared data structure in flight.
 
-We demonstrate this by implementing swordbox in P4 and
-demonstrate it's performance benifits for a remote memory
-system Clover~\cite{clover} a system for persistant remote
-memory. Clients in clover persist their key-value writes by
-appending to a shared linked list. Appends fail if they are
-made to any location other than the tail of the list.
-Concurrent writes lead to failed request in which clients
-race and pointer chase for a successful requst for the tail.
-Swordbox caches the tail pointer on the switch, and when
-stale request are seen they are updated at line rate and
-made to succeed.  We demonstrate that under contention
-swordbox can improve throughput by nearly 35x and reduce
-tail latency by 300x. \todo{add a figure of the failure
-rate, and of clover vs swordbox.}
+In our prototype we resolve optimistic updates to a shared
+link list which underpins Clover, a state of the art
+disaggregated key value store~\cite{clover}. In Clover keys
+are stored as a linked list, when clients update a key they
+issue an append to the tail of the list. When keys are under
+contention appends to the list frequently fail as the
+clients issue appends to stale version of the lists' tail.
+
+Figure~\ref{fig:swordbox} a) shows how the success rate of
+clovers writes plummets as the number of concurrent clients
+increase. When requests fail, clients must issue reads to
+the list, find the tail, and execute the write again causing
+throughput to drop, and tail latency to dramatically
+increase. Swordbox fixes this performance pitfall by caching
+the tail pointer of hot keys in a P4 program running on a
+programmable TOR. When write pass through Swordbox it
+updates it's tail pointer to the list.  When Swordbox sees
+stale writes, i.e writes issued to old tail locations, it
+rewrites the virtual address of the write to append it to
+the tail of the list. This technique enables all contested
+request to succeed while using only a small amount of switch
+SRAM (64bits per key). Figure~\ref{fig:swordbox} b,c shows
+both the throughput (32x) and latency (300x) improvements of
+using Swordbox.
+
+Swordbox demonstrates that optimistic algorithms can be
+dramatically improved by caching contested variables in
+network. Data structures which require updates to many
+locations within a structure may be less amenable to
+swordbox's design as the amount of state required to perform
+the updates may be large. The future direction for this work
+is to investigate data structure design which enables large
+performance boosts through small amounts of in-network
+caching.
+
+\begin{figure*}[t!]
+    \begin{subfigure}{.33\textwidth}
+      \centering
+      \includegraphics[width=.9\linewidth]{fig/success_rate.pdf}
+    \end{subfigure}%
+    \begin{subfigure}{.33\textwidth}
+      \centering
+      \includegraphics[width=.9\linewidth]{fig/full_system_performance.pdf}
+    \end{subfigure}
+    \begin{subfigure}{.33\textwidth}
+      \centering
+      \includegraphics[width=.9\linewidth]{fig/99th_latency.pdf}
+    \end{subfigure}
+
+    \caption{Swordbox performance benifits. \textbf{a)} The effect of contention on
+    Clover's optimistic writes. \textbf{b)} System throughput
+    for YCSB-A (50\% write). \textbf{c)} 99th percentile tail
+    latency for different write percentages. Left: read
+    latency. Right: write latency}
+        
+    \label{fig:swordbox}
+\end{figure*}
 
 \section{RCuckoo}
 
