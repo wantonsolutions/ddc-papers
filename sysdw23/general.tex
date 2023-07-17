@@ -143,21 +143,24 @@ caching.
 \section{RCuckoo}
 
 Not all data structures are amenable to oportunistic
-updates, but traditional locking port poorly to remote
-memory. Acquiring, and then releasing a lock requires at
-minimum two round trips, a fact which not only increases the
-minimum operation duration, but which sets a minimum
-duration on critical sections. A system with a 2us round
-trip time, and a single global lock can only perform 500,000
-operations per second in the best case (meger numbers when
-considering that decakes old key value stores acheive 10's
-of millions of requests per second ~\cite{herd}). Fine
-grained locking is a requirement. Unfortunatly fine grained
-locking suffers from a duel problem, deadlock free lock
-acquisition requires a round trip per lock inflating
-operation time. 
+updates. Some require extensive updates to a structure where
+critical sections provided by traditional locking provides a
+simple way to ensure consistency. Unfortunately locks port
+poorly to remote memory. 
+%%
+Acquiring, and then releasing a lock requires at minimum two
+round trips, a fact which not only increases the minimum
+operation duration, but which sets a lower bound on critical
+section length. A system with a 2us round trip time, and a
+single global lock can only perform 500,000 operations per
+second in the best case (meager numbers when considering that
+decades old key value stores acheive 10's of millions of
+requests per second ~\cite{herd}). Fine grained locking is a
+requirement.  Unfortunately fine grained locking suffers from
+a duel problem, deadlock free lock acquisition requires a
+round trip per lock inflating operation time. 
 
-With RDMA atomics many locks can be aquired in a single
+With RDMA atomics many locks can be acquired in a single
 operation, but only if they are within the word width of the
 RDMA atomic (64 bits). Fine grained locking is therefore a
 challenge of achieving good lock locality.
@@ -167,20 +170,62 @@ remote memory. Cuckoo hashing has long been known to perform
 well with RDMA reads as lookups must search at most 2
 locations~\cite{pilaf, farm}. The complexity of cuckoo
 hashing is pushed to writes which perform swaps randomly
-throughout the table. We develop a new algorithm for
-locality aware cuckoo hashing. Both hash location are with
-high probabiltiy located close together. Insertions are
-therefore more likely to be localized to a small reigion of
-the tabe rather than random, and the locks can be aquired in
-few round trips. In addition we use locality to improve
-searching for hash table openings using locality aware
-search (A*) to find minimal distance insertion paths. We
-achieve on average 2 round trips per insertion and
-demonstrate that we out perform state of the art remote
-memory hashing algorithms in simulation.
+throughout the table. 
 
-\todo{add the figure of the A* search and the number of
-round trips per lock}
+We develop a new algorithm for locality aware cuckoo
+hashing. Both hash locations of a key are \textit{likely} to
+be near one another, rather than in random locations . Our
+hash algorithm ensures that with high probability most pairs
+of hash locations are close.  This technique increases the
+probability that insertions to the table can be performance
+with a high degree of locality within the hash table.
+
+Locality provides many opportunities for network
+optimizations. First because both updates and reads are
+localized read can with high likelihood be performed with a
+single RDMA read message. Second, because updates are
+localized clients can quickly synchronize with the remote
+table by issuing a single large RDMA read. These techniques
+trade off bandwidth, which is usually plentiful in data
+center networks for latency \todo{figure from rcuckoo that
+shows the packet size latency tradeoff}
+
+Locality also enables smarter search. Insertions with a
+large number of table updates can be slow. Because updates
+are localized we can use locality aware search (A*) to
+quickly find the shortest insertion path.  
+
+Finally and most importantly locality enables efficient
+locking. Because updates are localized the locks for a given
+set of table updates are likely to be close. We use this
+fact, and RDMA masked compare and swap \todo{cite} to
+acquire and release all required locks in two round trips in
+the average case and found RTT at the 99th percentile.
+
+
+\begin{figure*}[t!]
+    \begin{subfigure}{.33\textwidth}
+      \centering
+      \includegraphics[width=.9\linewidth]{fig/rdma_latency.pdf}
+    \end{subfigure}%
+    \begin{subfigure}{.33\textwidth}
+      \centering
+      \includegraphics[width=.9\linewidth]{fig/insertion_span.pdf}
+    \end{subfigure}
+    \begin{subfigure}{.33\textwidth}
+      \centering
+      \includegraphics[width=.9\linewidth]{fig/search_dependence.pdf}
+    \end{subfigure}
+
+    \caption{RCuckoo algorithmic improvements. \textbf{a)}
+    RDMA read latency vs message size. \textbf{b)}RCukoo
+    hash locality. The span in table rows which insertions
+    span using random hashing vs dependent hashing.
+    \textbf{c)} 99th percentile round trips for insertions
+    using random hashing vs dependent.}
+    \label{fig:rcuckoo}
+\end{figure*}
+
 
 
 \section{Black Box Disaggregation}
