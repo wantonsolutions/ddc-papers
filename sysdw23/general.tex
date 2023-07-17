@@ -172,13 +172,14 @@ locations~\cite{pilaf, farm}. The complexity of cuckoo
 hashing is pushed to writes which perform swaps randomly
 throughout the table. 
 
-We develop a new algorithm for locality aware cuckoo
-hashing. Both hash locations of a key are \textit{likely} to
-be near one another, rather than in random locations . Our
-hash algorithm ensures that with high probability most pairs
-of hash locations are close.  This technique increases the
-probability that insertions to the table can be performance
-with a high degree of locality within the hash table.
+We develop a new system \textit{Rcuckoo} and algorithm for
+locality aware cuckoo hashing. Both hash locations of a key
+are \textit{likely} to be near one another, rather than in
+random locations . Our hash algorithm ensures that with high
+probability most pairs of hash locations are close.  This
+technique increases the probability that insertions to the
+table can be performance with a high degree of locality
+within the hash table.
 
 Locality provides many opportunities for network
 optimizations. First because both updates and reads are
@@ -187,21 +188,31 @@ single RDMA read message. Second, because updates are
 localized clients can quickly synchronize with the remote
 table by issuing a single large RDMA read. These techniques
 trade off bandwidth, which is usually plentiful in data
-center networks for latency \todo{figure from rcuckoo that
-shows the packet size latency tradeoff}
+center networks for latency. Figure~\ref{fig:rcuckoo} a, shows
+the latency vs packet size tradeoff for RDMA reads. Not that
+a packet must be larger than 1024 bytes before issuing two
+dependent 64 byte reads is faster.
 
 Locality also enables smarter search. Insertions with a
 large number of table updates can be slow. Because updates
 are localized we can use locality aware search (A*) to
-quickly find the shortest insertion path.  
+quickly find the shortest insertion path.
+Figure~\ref{fig:rcuckoo} b shows the effect of A* on the how
+large of a table span update effect. Using locality aware
+hashing (dependent) 99\% of insertions fall within a
+contiguous 32 rows of the cuckoo table.
 
 Finally and most importantly locality enables efficient
 locking. Because updates are localized the locks for a given
 set of table updates are likely to be close. We use this
 fact, and RDMA masked compare and swap \todo{cite} to
 acquire and release all required locks in two round trips in
-the average case and found RTT at the 99th percentile.
-
+the average case and five RTT at the 99th percentile.
+Figure~\ref{fig:rcuckoo} c, shows the effect of locality on
+round trips. On the X-axis the number of locks which are
+issued per request is increased. Because of locality RCuckoo
+is able to acquire more locks in a single round trip than
+random hashing.
 
 \begin{figure*}[t!]
     \begin{subfigure}{.33\textwidth}
@@ -226,7 +237,12 @@ the average case and found RTT at the 99th percentile.
     \label{fig:rcuckoo}
 \end{figure*}
 
-
+This work focuses on how algorithmic changes can increase
+data structure locality. In this line of work we plan on
+investigating how other data structures can be modified to
+increase locality. Prior work on NUMA optimized, and cache
+optimized data structures is likely to yield directly
+applicable results~\cite{hopscotch}.
 
 \section{Black Box Disaggregation}
 
