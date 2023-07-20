@@ -73,6 +73,28 @@ general case.
 
 
 \section{Optimistic Data Structures}
+\begin{figure*}[t!]
+    \begin{subfigure}{.33\textwidth}
+      \centering
+      \includegraphics[width=.9\linewidth]{fig/success_rate.pdf}
+    \end{subfigure}%
+    \begin{subfigure}{.33\textwidth}
+      \centering
+      \includegraphics[width=.9\linewidth]{fig/full_system_performance.pdf}
+    \end{subfigure}
+    \begin{subfigure}{.33\textwidth}
+      \centering
+      \includegraphics[width=.9\linewidth]{fig/99th_latency.pdf}
+    \end{subfigure}
+
+    \caption{Swordbox performance benifits. \textbf{a)} The effect of contention on
+    Clover's optimistic writes. \textbf{b)} System throughput
+    for YCSB-A (50\% write). \textbf{c)} 99th percentile tail
+    latency for different write percentages. Left: read
+    latency. Right: write latency}
+        
+    \label{fig:swordbox}
+\end{figure*}
 
 Optimistic concurrency enables high degrees of parallelism
 in the absence of contention. At a high level concurrent
@@ -126,30 +148,32 @@ the updates may be large.
 % performance boosts through small amounts of in-network
 % caching.
 
+
+\section{Lock Based Data Structures}
+
 \begin{figure*}[t!]
     \begin{subfigure}{.33\textwidth}
       \centering
-      \includegraphics[width=.9\linewidth]{fig/success_rate.pdf}
+      \includegraphics[width=.9\linewidth]{fig/rdma_latency.pdf}
     \end{subfigure}%
     \begin{subfigure}{.33\textwidth}
       \centering
-      \includegraphics[width=.9\linewidth]{fig/full_system_performance.pdf}
+      \includegraphics[width=.9\linewidth]{fig/insertion_span.pdf}
     \end{subfigure}
     \begin{subfigure}{.33\textwidth}
       \centering
-      \includegraphics[width=.9\linewidth]{fig/99th_latency.pdf}
+      \includegraphics[width=.9\linewidth]{fig/search_dependence.pdf}
     \end{subfigure}
 
-    \caption{Swordbox performance benifits. \textbf{a)} The effect of contention on
-    Clover's optimistic writes. \textbf{b)} System throughput
-    for YCSB-A (50\% write). \textbf{c)} 99th percentile tail
-    latency for different write percentages. Left: read
-    latency. Right: write latency}
-        
-    \label{fig:swordbox}
+    \caption{RCuckoo algorithmic improvements. \textbf{a)}
+    RDMA read latency vs message size. \textbf{b)}RCukoo
+    hash locality. The span in table rows which insertions
+    span using random hashing vs dependent hashing.
+    \textbf{c)} 99th percentile round trips for insertions
+    using random hashing vs dependent.}
+    \label{fig:rcuckoo}
 \end{figure*}
 
-\section{Lock Based Data Structures}
 
 Not all data structures are amenable to oportunistic
 updates. Some require extensive updates to a structure where
@@ -182,7 +206,6 @@ well with RDMA reads as lookups must search at most 2
 locations~\cite{pilaf, farm}. The complexity of cuckoo
 hashing is pushed to writes which perform swaps randomly
 throughout the table. 
-
 
 %%TODO improve this paragraph
 We develop a new system \textit{Rcuckoo} and algorithm for
@@ -220,34 +243,12 @@ set of table updates are likely to be close. We use this
 fact, and RDMA masked compare and swap \todo{cite} to
 acquire and release all required locks in two round trips in
 the average case and five RTT at the 99th percentile.
-Figure~\ref{fig:rcuckoo} c, shows the effect of locality on
+Figure~\ref{fig:rcuckoo}c, shows the effect of locality on
 round trips. On the X-axis the number of locks which are
 issued per request is increased. Because of locality RCuckoo
 is able to acquire more locks in a single round trip than
 random hashing.
 
-\begin{figure*}[t!]
-    \begin{subfigure}{.33\textwidth}
-      \centering
-      \includegraphics[width=.9\linewidth]{fig/rdma_latency.pdf}
-    \end{subfigure}%
-    \begin{subfigure}{.33\textwidth}
-      \centering
-      \includegraphics[width=.9\linewidth]{fig/insertion_span.pdf}
-    \end{subfigure}
-    \begin{subfigure}{.33\textwidth}
-      \centering
-      \includegraphics[width=.9\linewidth]{fig/search_dependence.pdf}
-    \end{subfigure}
-
-    \caption{RCuckoo algorithmic improvements. \textbf{a)}
-    RDMA read latency vs message size. \textbf{b)}RCukoo
-    hash locality. The span in table rows which insertions
-    span using random hashing vs dependent hashing.
-    \textbf{c)} 99th percentile round trips for insertions
-    using random hashing vs dependent.}
-    \label{fig:rcuckoo}
-\end{figure*}
 
 
 As future work we plan to investigate how to modify other
@@ -258,12 +259,12 @@ yield directly applicable results~\cite{hopscotch}.
 \section{General Data Structures}
 
 Swordbox and RCuckoo demonstrate that with careful design
-specific optimistic and lock based data structures can
-perform well in remote memory. They do not provide a general
-purpose recipe for designing remote memory data structures
-which developers without a deep understanding of networking
-and system design can use. In the final work of my PhD I'm
-interested in developing such a recipe.
+specific optimistic and lock-based data structures can
+perform well in remote memory. They do not provide a
+general-purpose recipe for designing remote memory data
+structures which developers without a deep understanding of
+networking and system design can use. In the final work of
+my PhD I'm interested in developing such a recipe.
 
 Prior work on NUMA systems has demonstrated that highly
 concurrent data structures can be designed in general with a
@@ -275,25 +276,25 @@ commit operations first read the log, construct the dat
 structure locally, and then append to the end of the log
 their new operation~\cite{black-box-numa}.
 
-This technique experiences the same contentiSpecifciallyon issues as
+This technique experiences the same contention issues as
 Clover in that multiple clients race for the tail of the
 list, however on NUMA nodes the memory latency is low enough
 that the technique scales well enough for practical
 purposes. 
 
 We propose a similar technique for remote memory, with the
-addition that switch, or programmable nic close to memory be
+addition that a switch, or programmable nic close to memory be
 used to remove contention from the shared list. The switch
-or NIC can provide two fold services. The first of which is
+or NIC can provide two-fold services. The first of which is
 to steer appends to the shared list to the end of the list
-enabling the success of each client request. Second using
+enabling the success of each client request. Second, using
 the fact that large RDMA reads are faster than many
 dependent small reads  when clients read the shared log, and
 are unaware of the tail location, the switch can inflate the
 size of the read in flight by modifying the RDMA read
 request. 
 
-Our hope is to demonstrate that pointer heavy data
+Our hope is to demonstrate that pointer-heavy data
 structures, and structures with large critical sections such
 as linked list, binary trees, and B-trees can be
 implemented, and shared in remote memory with good
@@ -304,7 +305,7 @@ performance.
 My thesis work focuses on the design and implementation of
 shared data structures in disaggregated memory. Using
 programmable network technology, we have demonstrated that
-both optimistic and lock based data structures can be
+both optimistic and lock-based data structures can be
 performant. My future research goals aim to generalize these
 approaches to reduce developer effort in using remote memory
 efficiently.
