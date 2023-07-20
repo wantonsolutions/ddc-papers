@@ -2,51 +2,58 @@
 
 \section{Introduction}
 
-The imbalance between compute and memory capacity for data
-center servers has only increased over the past decade.
-Simultaneously networks have doubled in capacity at an
-increasing rate and have integrated line rate
-programmability into many commodity chips. These trends have
-yielded various research proposals for attacking the
-\textit{memory wall} with fast networks. Memory
-disaggregation proposes the addition of pools of far-memory
-attached over a network to clusters of compute machines,
-with the promise that large shared pools will decrease
-memory stranding and increase overall memory utilization.
+My work focuses on the design of algorithms and data
+structures for remote memory. I am interested in how
+programmable network devices can be integrated into these
+systems to provide high performance.
+%%
+This work is motivated by the observation that the imbalance
+between compute and memory capacity for data center servers
+has only grown over the past decade while network devices 
+are simultaneously faster, and more programmable than ever.
+%%
+These trends have yielded various research proposals for
+expanding per-core memory capacity with fast networks.
+Memory disaggregation proposes the addition of pools of far
+memory attached over a network to clusters of compute
+machines, with the promise that large shared pools will
+decrease memory stranding and increase overall memory
+utilization.
 
 Latency is the chief challenge in realizing practical memory
-disaggregation. Low-latency interconnects such as RDMA have
-intra-rack round trip latencies on the order of 1-2$\mu$s.
-In contrast to local memory DRAM access times of 50-100ns
-RDMA latency is a 20x overhead. This disparity prevents many
-data structures, and system functions from being deployable
-for remote memory. Existing systems have amortized the
-network cost by porting slower subsystems i.e swap devices
-~\cite{fastswap, legoos}\todo{add more}. 
+disaggregation. Low-latency interconnects such as RDMA over
+Ethernet have intra-rack round trip latencies on the order
+of 1-2$\mu$s.  In contrast to local memory DRAM access times
+of 50-100ns, RDMA latency is a 20x overhead. This disparity
+prevents many data structures and system functions from
+being deployable with remote memory.
 
-These systems avoid a key feature of local memory
-\textit{sharing}. Shared data structures in remote memory
-can suffer abysmal performance when accessed concurrently.
-Both traditional lock based and optimistically concurrent
-data structures suffer abysmal performance when ported to
-remote memory. Lock based algorithms have inflated critical
-section sizes due to round trip delays, and optimistic
-approaches suffer from stale caches under contention, and
-the increased cost of reading to synchronize caches. In
-general shared structures are hard to port to remote memory.
+Many existing far-memory systems have found performance
+success by porting well isolated and slower subsystems like
+page swapping remote memory.  These systems avoid a key
+feature of local memory \textit{sharing}. Shared data
+structures in remote memory can suffer poor performance when
+accessed concurrently.  Both traditional lock-based and
+optimistically concurrent data structures suffer abysmal
+performance when ported to remote memory. Lock-based
+algorithms have inflated critical section sizes due to
+round-trip delays, and optimistic approaches suffer from
+stale caches under contention, and the increased cost of
+reading to synchronize caches. In general, shared structures
+are hard to port to remote memory.
 
 %% Todo this is my research statement work hard on it.
-My work focuses on the design of algorithms and data
-structures for remote memory.  A key insight of my work is
-that the performance pitfalls of remote memory arise from
-memory not having colocated compute to serialize operations.
-We note that this pitfall is unnecessary because the network
-implicitly serializes each operation during transit and
-programable elements within the network can administrate
-algorithm level serialization at line rate. With this
-observation in mind we design shared far memory systems
-using programmable devices such as NIC's and switches to
-accelerate performance.
+
+A key insight of my work is that many far memory performance
+pitfalls are the result of slow serialization mechanisms.
+Because remote memory has no colocated CPU's, operations
+must be serialized by independent clients. We note that the
+network already provides de facto serialization during
+transit. Programable elements within the network can
+orchestrate algorithm-level serialization at line rate.
+With this observation in mind we design shared far memory
+systems using programmable devices such as NICs and
+switches to accelerate performance.
 
 This research summary covers three projects which illustrate
 how these devices can be used to improve optimistic data
@@ -69,12 +76,12 @@ general case.
 
 Optimistic concurrency enables high degrees of parallelism
 in the absence of contention. At a high level concurrent
-processes keep a cache of a shared structures state, and
-then issue operations which succeed if the cache of read, or
-written data is synchronized with the shared structure. When
-memory latency, and contention are high synchronization is
-difficult as reads are slower and more expensive quickly
-causing local caches to become stale.
+processes keep a cache of a shared structure's state, and
+then issue operations which succeed if the cache is
+synchronized with the shared structure. When memory latency
+and contention are high synchronization is difficult as
+reads are slower and more expensive,  quickly causing local
+caches to become stale.
 
 In our work \textit{Swordbox} we make the observation that
 at rack-scale the top-of-rack (TOR) switch observes all
@@ -140,7 +147,7 @@ caching.
     \label{fig:swordbox}
 \end{figure*}
 
-\section{RCuckoo}
+\section{Lock Based Data Structures}
 
 Not all data structures are amenable to oportunistic
 updates. Some require extensive updates to a structure where
@@ -244,42 +251,56 @@ increase locality. Prior work on NUMA optimized, and cache
 optimized data structures is likely to yield directly
 applicable results~\cite{hopscotch}.
 
-\section{Black Box Disaggregation}
+\section{General Data Structures}
 
-A question remains about general data structure design for
-remote memory. while high performanc can be achieved through
-careful data structure design, is it possible enable general
-data structure design for remote memory? My future research
-direction aims to explore this question.
+Swordbox and RCuckoo demonstrate that with careful design
+specific optimistic and lock based data structures can
+perform well in remote memory. They do not provide a general
+purpose recipe for designing remote memory data structures
+which developers without a deep understanding of networking
+and system design can use. In the final work of my PhD I'm
+interested in developing such a recipe.
 
-Prior work on NUMA systems has shown that highly concurrent
-data structures can be desigend in geneal with a technqiue
-known as \textit{node replication}. All operations to a
-shared structure are made by appending the operations to a
-shared log. Clients wishing to commit operations first read
-the log, construct the dat structure locally, and then
-append to the end of the log their new operation~\cite{bbd}.
+Prior work on NUMA systems has demonstrated that highly
+concurrent data structures can be designed in general with a
+technique known as \textit{node
+replication}~\cite{black-box-numa}. In the node replication
+algorithm all operations to a shared structure are made by
+appending the operations to a shared log. Clients wishing to
+commit operations first read the log, construct the dat
+structure locally, and then append to the end of the log
+their new operation~\cite{black-box-numa}.
 
-This technique experiences the same contention issues as
-clover in that multiple clients race for the tail of the
+This technique experiences the same contentiSpecifciallyon issues as
+Clover in that multiple clients race for the tail of the
 list, however on NUMA nodes the memory latency is low enough
-that the technqiue scales well enough for practical
+that the technique scales well enough for practical
 purposes. 
 
-We propose a similar technqiue for remote memory, with the
+We propose a similar technique for remote memory, with the
 addition that switch, or programmable nic close to memory be
 used to remove contention from the shared list. The switch
 or NIC can provide two fold services. The first of which is
 to steer appends to the shared list to the end of the list
-enabling the success of each client request. Second when
-clients read the shared log, and are unaware of the tail
-location, the switch can inflate the size of the reads in
-flight by modifying the RDMA read request. 
+enabling the success of each client request. Second using
+the fact that large RDMA reads are faster than many
+dependent small reads  when clients read the shared log, and
+are unaware of the tail location, the switch can inflate the
+size of the read in flight by modifying the RDMA read
+request. 
 
-Using these techniques black box disaggregation can enable
-generic high performance shared data structures for remote
-memory.
-
-\todo{include a diagram of the system}.
+Our hope is to demonstrate that pointer heavy data
+structures, and structures with large critical sections such
+as linked list, binary trees, and B-trees can be
+implemented, and shared in remote memory with good
+performance.
 
 \section{Conclusion}
+
+My thesis work focuses on the design and implementation of
+shared data structures in disaggregated memory. Using
+programmable network technology, we have demonstrated that
+both optimistic and lock based data structures can be
+performant. My future research goals aim to generalize these
+approaches to reduce developer effort in using remote memory
+efficiently.
