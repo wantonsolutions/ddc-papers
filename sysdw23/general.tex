@@ -80,22 +80,22 @@ processes keep a cache of a shared structure's state, and
 then issue operations which succeed if the cache is
 synchronized with the shared structure. When memory latency
 and contention are high synchronization is difficult as
-reads are slower and more expensive,  quickly causing local
+reads are slower and more expensive, quickly causing local
 caches to become stale.
 
 In our work \textit{Swordbox} we make the observation that
 at rack-scale the top-of-rack (TOR) switch observes all
-memory operations in serialized order. This de facto
+remote memory operations in serialized order. This de facto
 serialization enables a programmable switch to resolve
 conflicting updates to a shared data structure in flight.
 
 In our prototype we resolve optimistic updates to a shared
-link list which underpins Clover, a state of the art
+link list which underpins Clover, a state-of-the-art
 disaggregated key value store~\cite{clover}. In Clover keys
-are stored as a linked list, when clients update a key they
+are stored as a linked list; when clients update a key they
 issue an append to the tail of the list. When keys are under
 contention appends to the list frequently fail as the
-clients issue appends to stale version of the lists' tail.
+clients issue appends to stale version of the list's tail.
 
 Figure~\ref{fig:swordbox} a) shows how the success rate of
 clovers writes plummets as the number of concurrent clients
@@ -104,25 +104,27 @@ the list, find the tail, and execute the write again causing
 throughput to drop, and tail latency to dramatically
 increase. Swordbox fixes this performance pitfall by caching
 the tail pointer of hot keys in a P4 program running on a
-programmable TOR. When write pass through Swordbox it
-updates it's tail pointer to the list.  When Swordbox sees
+programmable TOR. When writes pass through Swordbox it
+updates its tail pointer to the list.  When Swordbox sees
 stale writes, i.e writes issued to old tail locations, it
 rewrites the virtual address of the write to append it to
 the tail of the list. This technique enables all contested
-request to succeed while using only a small amount of switch
-SRAM (64bits per key). Figure~\ref{fig:swordbox} b,c shows
-both the throughput (32x) and latency (300x) improvements of
-using Swordbox.
+requests to succeed while using only a small amount of
+switch SRAM (64bits per key). Figure~\ref{fig:swordbox} b,c
+shows both the throughput (32x) and latency (300x)
+improvements of using Swordbox.
 
 Swordbox demonstrates that optimistic algorithms can be
 dramatically improved by caching contested variables in
 network. Data structures which require updates to many
 locations within a structure may be less amenable to
-swordbox's design as the amount of state required to perform
-the updates may be large. The future direction for this work
-is to investigate data structure design which enables large
-performance boosts through small amounts of in-network
-caching.
+Swordbox's design as the amount of state required to perform
+the updates may be large.
+
+% The future direction for this work
+% is to investigate data structure design which enables large
+% performance boosts through small amounts of in-network
+% caching.
 
 \begin{figure*}[t!]
     \begin{subfigure}{.33\textwidth}
@@ -151,26 +153,28 @@ caching.
 
 Not all data structures are amenable to oportunistic
 updates. Some require extensive updates to a structure where
-critical sections provided by traditional locking provides a
-simple way to ensure consistency. Unfortunately locks port
-poorly to remote memory. 
+critical sections provided by traditional locking can
+provide a simple way to ensure consistency. Unfortunately,
+locks port poorly to remote memory. 
 %%
-Acquiring, and then releasing a lock requires at minimum two
+Acquiring and then releasing a lock requires at minimum two
 round trips, a fact which not only increases the minimum
-operation duration, but which sets a lower bound on critical
-section length. A system with a 2us round trip time, and a
-single global lock can only perform 500,000 operations per
-second in the best case (meager numbers when considering that
-decades old key value stores acheive 10's of millions of
-requests per second ~\cite{herd}). Fine grained locking is a
-requirement.  Unfortunately fine grained locking suffers from
-a duel problem, deadlock free lock acquisition requires a
-round trip per lock inflating operation time. 
+operation duration, but which sets a lower bound on
+critical-section length. A system with a 2us round-trip time
+and a single global lock can only perform 500,000 operations
+per second in the best case (meager numbers when considering
+that decades-old key value stores acheive 10s of millions of
+requests per second~\cite{herd}). Because intra-rack latency
+is unlikely to dramatically decrease in the near future,
+lock-based remote memory algorithms must be designed to use
+fine grained locks. Unfortunately fine grained locking
+suffers from a dual problem, deadlock-free lock acquisition
+requires a round trip per lock inflating operation time. 
 
-With RDMA atomics many locks can be acquired in a single
-operation, but only if they are within the word width of the
-RDMA atomic (64 bits). Fine grained locking is therefore a
-challenge of achieving good lock locality.
+RDMA NICs provide atomic primitives (compare-and-swap) which
+can be used to set up to 64 bits (locks) in a single
+operation~\cite{melanox-operations}.  Fine grained locking
+is therefore a challenge of achieving good lock locality.
 
 With this in mind we investigate porting cuckoo hashing to
 remote memory. Cuckoo hashing has long been known to perform
@@ -179,6 +183,8 @@ locations~\cite{pilaf, farm}. The complexity of cuckoo
 hashing is pushed to writes which perform swaps randomly
 throughout the table. 
 
+
+%%TODO improve this paragraph
 We develop a new system \textit{Rcuckoo} and algorithm for
 locality aware cuckoo hashing. Both hash locations of a key
 are \textit{likely} to be near one another, rather than in
@@ -189,25 +195,24 @@ table can be performance with a high degree of locality
 within the hash table.
 
 Locality provides many opportunities for network
-optimizations. First because both updates and reads are
-localized read can with high likelihood be performed with a
+optimizations. First because both put and get operations are
+localized gets can with high likelihood be performed with a
 single RDMA read message. Second, because updates are
 localized clients can quickly synchronize with the remote
 table by issuing a single large RDMA read. These techniques
 trade off bandwidth, which is usually plentiful in data
-center networks for latency. Figure~\ref{fig:rcuckoo} a, shows
-the latency vs packet size tradeoff for RDMA reads. Not that
+center networks, for latency. Figure~\ref{fig:rcuckoo}a shows
+the latency vs packet size tradeoff for RDMA reads. Note that
 a packet must be larger than 1024 bytes before issuing two
-dependent 64 byte reads is faster.
+dependent 64-byte reads is faster than a single large read.
 
 Locality also enables smarter search. Insertions with a
 large number of table updates can be slow. Because updates
-are localized we can use locality aware search (A*) to
+are localized we can use locality-aware search (e.g. A*) to
 quickly find the shortest insertion path.
-Figure~\ref{fig:rcuckoo} b shows the effect of A* on the how
-large of a table span update effect. Using locality aware
-hashing (dependent) 99\% of insertions fall within a
-contiguous 32 rows of the cuckoo table.
+Figure~\ref{fig:rcuckoo}b shows how A* search and locality
+aware hashing (dependent) ensure that 99\% of updates fall
+within a 32 row span of the cuckoo table.
 
 Finally and most importantly locality enables efficient
 locking. Because updates are localized the locks for a given
@@ -244,12 +249,11 @@ random hashing.
     \label{fig:rcuckoo}
 \end{figure*}
 
-This work focuses on how algorithmic changes can increase
-data structure locality. In this line of work we plan on
-investigating how other data structures can be modified to
-increase locality. Prior work on NUMA optimized, and cache
-optimized data structures is likely to yield directly
-applicable results~\cite{hopscotch}.
+
+As future work we plan to investigate how to modify other
+data structures to increase locality.  Prior work on NUMA
+optimized, and cache optimized data structures is likely to
+yield directly applicable results~\cite{hopscotch}.
 
 \section{General Data Structures}
 
